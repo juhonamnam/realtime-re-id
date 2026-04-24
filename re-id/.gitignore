@@ -1,0 +1,14 @@
+# For Jupyter Notebook
+*.ipynb_checkpoints
+
+# For Python
+*__pycache__/
+
+# venv
+.venv/
+
+# For PyTorch
+dataset/
+exports/
+weights/
+tmp/

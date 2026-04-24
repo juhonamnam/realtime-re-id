@@ -1,0 +1,87 @@
+@use "./components/carousel";
+
+$button-section-length: 8rem;
+$nav-section-length: 5rem;
+
+.window {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  display: flex;
+  overflow: hidden;
+
+  &[data-orientation="portrait"] {
+    flex-direction: column;
+  }
+  &[data-orientation="landscape"] {
+    flex-direction: row;
+  }
+}
+
+.nav-container {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+
+  [data-orientation="portrait"] & {
+    padding-left: 1rem;
+    width: 100%;
+    height: $nav-section-length;
+    flex-direction: row;
+  }
+
+  [data-orientation="landscape"] & {
+    padding-top: 1rem;
+    width: $nav-section-length;
+    height: 100%;
+    flex-direction: column;
+  }
+}
+
+.camera-container {
+  display: flex;
+
+  [data-orientation="portrait"] & {
+    justify-content: center;
+    align-items: start;
+    width: 100%;
+    height: calc(100% - #{$nav-section-length + $button-section-length});
+  }
+
+  [data-orientation="landscape"] & {
+    justify-content: start;
+    align-items: center;
+    width: calc(100% - #{$nav-section-length + $button-section-length});
+    height: 100%;
+  }
+}
+
+.camera-button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  [data-orientation="portrait"] & {
+    width: 100%;
+    height: $button-section-length;
+  }
+
+  [data-orientation="landscape"] & {
+    width: $button-section-length;
+    height: 100%;
+  }
+}
+
+.camera-button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 3.5rem;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border: 2px solid #fff;
+}
