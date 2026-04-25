@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useCamData, Cam, CamWrapper } from "./cam"
 import { logger } from "./logger"
 import { useLoading } from "./loading"
@@ -294,7 +301,7 @@ export const ReIdentification = ({
 
         const segmentNameTexts = feModel.segmentNames.map((name) => name + " ")
 
-        const similarityTexts = ["Similarity: "]
+        const similarityTexts = ["Similarity "]
 
         const similarityColors = [totalSimilarityColor]
 
@@ -310,7 +317,7 @@ export const ReIdentification = ({
 
         const visibilityColors = [totalVisibilityColor]
 
-        const visibilityTexts = ["Visibility: "]
+        const visibilityTexts = ["Visibility "]
 
         for (let j = 0; j < feature.vScores.length; j++) {
           visibilityColors.push(
@@ -327,17 +334,17 @@ export const ReIdentification = ({
           )
         }
 
-        const tableWidths = []
-        for (let j = 0; j < feature.vScores.length + 1; j++) {
-          const widths = [
-            ctx.measureText(similarityTexts[j]).width,
-            ctx.measureText(visibilityTexts[j]).width,
-          ]
-          if (j > 0) {
-            widths.push(ctx.measureText(segmentNameTexts[j - 1]).width)
-          }
-          tableWidths.push(Math.max(...widths))
-        }
+        const tableWidths = [
+          Math.max(
+            ...segmentNameTexts.map((text) => ctx.measureText(text).width),
+          ),
+          Math.max(
+            ...similarityTexts.map((text) => ctx.measureText(text).width),
+          ),
+          Math.max(
+            ...visibilityTexts.map((text) => ctx.measureText(text).width),
+          ),
+        ]
 
         const textWidth = Math.max(
           ctx.measureText(totalSimilarityText).width,
@@ -348,12 +355,15 @@ export const ReIdentification = ({
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
         ctx.fillRect(
           x1,
-          Math.max(y1 - 5 - FONT_SIZE * 5, 0),
+          Math.max(y1 - 5 - FONT_SIZE * (3 + feModel.segmentNames.length), 0),
           textWidth + LINE_WIDTH * 2,
-          FONT_SIZE * 5 + 5,
+          FONT_SIZE * (3 + feModel.segmentNames.length) + 5,
         )
 
-        const topY = Math.max(y1 - 5 - FONT_SIZE * 4, FONT_SIZE)
+        const topY = Math.max(
+          y1 - 5 - FONT_SIZE * (2 + feModel.segmentNames.length),
+          FONT_SIZE,
+        )
 
         ctx.fillStyle = `rgb(${totalSimilarityColor.join(", ")})`
         ctx.fillText(totalSimilarityText, x1 + LINE_WIDTH, topY)
@@ -361,36 +371,33 @@ export const ReIdentification = ({
         ctx.fillStyle = `rgb(${totalVisibilityColor.join(", ")})`
         ctx.fillText(totalVisibilityText, x1 + LINE_WIDTH, topY + FONT_SIZE)
 
-        let segnametNameTextX = x1 + LINE_WIDTH + tableWidths[0]
+        for (let j = 0; j < similarityTexts.length; j++) {
+          if (j !== 0) {
+            ctx.fillStyle = `rgb(${segmentNameColors[j - 1].join(", ")})`
+            ctx.fillText(
+              segmentNameTexts[j - 1],
+              x1 + LINE_WIDTH,
+              topY + FONT_SIZE * 2 + j * FONT_SIZE,
+            )
+          }
 
-        for (let j = 0; j < segmentNameTexts.length; j++) {
-          const segmentNameText = segmentNameTexts[j]
-          ctx.fillStyle = `rgb(${segmentNameColors[j].join(", ")})`
-          ctx.fillText(segmentNameText, segnametNameTextX, topY + FONT_SIZE * 2)
-
-          segnametNameTextX += tableWidths[j + 1]
-        }
-
-        let similarityTextX = x1 + LINE_WIDTH
-
-        for (let j = 0; j < similarityColors.length; j++) {
           const similarityColor = similarityColors[j]
           const similarityText = similarityTexts[j]
           ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
-          ctx.fillText(similarityText, similarityTextX, topY + FONT_SIZE * 3)
+          ctx.fillText(
+            similarityText,
+            x1 + LINE_WIDTH + tableWidths[0],
+            topY + FONT_SIZE * 2 + j * FONT_SIZE,
+          )
 
-          similarityTextX += tableWidths[j]
-        }
-
-        let visibilityTextX = x1 + LINE_WIDTH
-
-        for (let j = 0; j < visibilityColors.length; j++) {
           const visibilityColor = visibilityColors[j]
           const visibilityText = visibilityTexts[j]
           ctx.fillStyle = `rgb(${visibilityColor.join(", ")})`
-          ctx.fillText(visibilityText, visibilityTextX, topY + FONT_SIZE * 4)
-
-          visibilityTextX += tableWidths[j]
+          ctx.fillText(
+            visibilityText,
+            x1 + LINE_WIDTH + tableWidths[0] + tableWidths[1],
+            topY + FONT_SIZE * 2 + j * FONT_SIZE,
+          )
         }
       }
     },
@@ -513,6 +520,26 @@ const PersonSelectModal = ({
 
   const resizeThrottleOccupied = useRef(false)
 
+  const partVisibilityColors = useMemo(() => {
+    if (!snap) return []
+    return snap.features.map((feature) =>
+      Array.from(feature.vScores).map((score) =>
+        getVisibilityColor(score, feModel.visibilityThreshold),
+      ),
+    )
+  }, [snap, feModel])
+
+  const totalVisibilities = useMemo(() => {
+    if (!snap) return []
+    return snap.features.map((feature) => {
+      const visibilityScore = getTotalVisibilityScore(feature)
+      return [
+        visibilityScore,
+        getVisibilityColor(visibilityScore, feModel.visibilityThreshold),
+      ] as const
+    })
+  }, [snap, feModel])
+
   useEffect(() => {
     if (!snap || !canvasRef.current || !canvasWrapperRef.current) return
     const ctx = canvasRef.current.getContext("2d")
@@ -619,12 +646,36 @@ const PersonSelectModal = ({
         <div>
           <Carousel
             imageUrls={cropUrls}
-            descriptions={snap?.features.map(
-              ({ vScores }) =>
-                `Visibility: ${Array.from(vScores)
-                  .map((score) => score.toFixed(2))
-                  .join(" ")}`,
-            )}
+            descriptions={snap?.features.map(({ vScores }, i) => (
+              <Fragment key={i}>
+                <table>
+                  <tbody>
+                    <tr>
+                      <td>Total Visibility:</td>
+                      <td
+                        style={{
+                          color: `rgb(${totalVisibilities[i][1].join(", ")})`,
+                        }}
+                      >
+                        {totalVisibilities[i][0].toFixed(2)}
+                      </td>
+                    </tr>
+                    {Array.from(vScores).map((score, j) => (
+                      <tr key={j}>
+                        <td>{feModel.segmentNames[j]}:</td>
+                        <td
+                          style={{
+                            color: `rgb(${partVisibilityColors[i][j].join(", ")})`,
+                          }}
+                        >
+                          {score.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Fragment>
+            ))}
             aspectRatio={1.4}
             slideRef={slideRef}
             slideState={[slide, setSlide]}

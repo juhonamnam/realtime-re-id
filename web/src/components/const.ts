@@ -24,7 +24,7 @@ export const FE_MODELS: { [key: string]: FEModelInfo } = {
     similarityThreshold: 0.58,
     partSimilarityThresholds: [0.5, 0.6, 0.5, 0.5, 0.5],
     visibilityThreshold: 0.7,
-    segmentNames: ["head", "torso", "arm", "upper leg", "lower leg"],
+    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg"],
   },
 }
 

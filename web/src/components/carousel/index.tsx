@@ -28,7 +28,7 @@ export const Carousel = ({
   aspectRatio = 1,
 }: {
   imageUrls: string[]
-  descriptions?: string[]
+  descriptions?: React.ReactNode[]
   slideRef: React.RefObject<number>
   slideState: [number, React.Dispatch<React.SetStateAction<number>>]
   aspectRatio?: number
