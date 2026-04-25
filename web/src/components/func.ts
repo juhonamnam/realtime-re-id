@@ -39,13 +39,14 @@ export const getSimilarityScore = (
   feature2: Feature,
   thresholds: number[],
   exp: number = 2,
-): number => {
+) => {
   const combinedVScores: number[] = []
   for (let i = 0; i < feature1.vScores.length; i++) {
     combinedVScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
   }
 
   let totalSScore = 1
+  const partSScores = []
 
   for (let i = 0; i < feature1.embVecs.length; i++) {
     const combinedVScore = combinedVScores[i]
@@ -54,6 +55,7 @@ export const getSimilarityScore = (
     const embVec1 = feature1.embVecs[i]
     const embVec2 = feature2.embVecs[i]
     let sScore = getEmbSimilarityScore(embVec1, embVec2)
+    partSScores.push(sScore)
 
     const threshold = (thresholds[i] + 1) / 2
     sScore = (sScore + 1) / 2
@@ -70,13 +72,19 @@ export const getSimilarityScore = (
     totalSScore *= unknownRatio + combinedVScore * sScore
   }
 
-  return totalSScore
+  return [totalSScore, partSScores] as const
+}
+
+export const getTotalVisibilityScore = (feature: Feature) => {
+  return (
+    feature.vScores.reduce((acc, cur) => acc + cur, 0) / feature.vScores.length
+  )
 }
 
 export const getSimilarityColor = (
   similarityScore: number,
   threshold: number,
-) => {
+): [number, number, number] => {
   const matchColorRatio =
     ((similarityScore + 1) / 2) **
     (Math.log(0.5) / Math.log((threshold + 1) / 2))
@@ -95,7 +103,7 @@ export const getSimilarityColor = (
 export const getVisibilityColor = (
   visibilityScore: number,
   threshold: number,
-) => {
+): [number, number, number] => {
   const visibleColorRatio =
     visibilityScore ** (Math.log(0.5) / Math.log(threshold))
   const notVisibleColorRatio = 1 - visibleColorRatio
@@ -110,15 +118,6 @@ export const getVisibilityColor = (
   ]
 }
 
-export const getTotalVisibilityColor = (
-  feature: Feature,
-  threshold: number,
-) => {
-  const visibleScore =
-    feature.vScores.reduce((acc, cur) => acc + cur, 0) / feature.vScores.length
-  return getVisibilityColor(visibleScore, threshold)
-}
-
 export const visible = (feature: Feature, threshold: number) => {
   return feature.vScores.every((score) => score >= threshold)
 }
@@ -131,4 +130,19 @@ export const relativelyVisible = (
   return feature.vScores.every((score, i) =>
     featureToCompare.vScores[i] >= threshold ? score >= threshold : true,
   )
+}
+
+export const mergeColors = (
+  ...colors: [number, number, number][]
+): [number, number, number] => {
+  const totalColors = colors.length
+  const mergedColor = [0, 0, 0] as [number, number, number]
+
+  for (const color of colors) {
+    mergedColor[0] += color[0] / totalColors
+    mergedColor[1] += color[1] / totalColors
+    mergedColor[2] += color[2] / totalColors
+  }
+
+  return mergedColor
 }

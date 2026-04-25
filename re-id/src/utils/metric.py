@@ -42,7 +42,7 @@ def get_similarity_score(feature1, feature2,
     total_s_score = torch.tensor(1.).to(combined_v_scores.device)
 
     if return_part_scores:
-        s_scores = []
+        part_s_scores = []
 
     for i in range(ft_len):
         v_score = combined_v_scores[i]
@@ -56,7 +56,7 @@ def get_similarity_score(feature1, feature2,
             s_score = torch.tensor(-1.).view(s_score.shape).to(s_score.device)
 
         if return_part_scores:
-            s_scores.append(s_score)
+            part_s_scores.append(s_score)
         
         threshold = (thresholds[i] + 1) / 2
         s_score = (s_score + 1) / 2
@@ -69,12 +69,6 @@ def get_similarity_score(feature1, feature2,
         total_s_score *= unknown_ratio + v_score * s_score
 
     if return_part_scores:
-        return total_s_score, s_scores
+        return total_s_score, part_s_scores
 
     return total_s_score
-
-def get_representativeness_score(v_scores, lambda_weight=1.0):
-    mean_v_score = v_scores.mean()
-    std_v_score = v_scores.std()
-
-    return mean_v_score - lambda_weight * std_v_score

@@ -9,6 +9,7 @@ export type FEModelInfo = {
   shape: [number, number]
   similarityThreshold: number
   partSimilarityThresholds: number[]
+  segmentNames: string[]
   visibilityThreshold: number
 }
 

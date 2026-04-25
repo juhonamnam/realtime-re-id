@@ -17,10 +17,11 @@ import {
 import {
   getSimilarityColor,
   getSimilarityScore,
-  getTotalVisibilityColor,
   getVisibilityColor,
+  getTotalVisibilityScore,
   relativelyVisible,
   visible,
+  mergeColors,
 } from "./func"
 
 type ReIdentificationProps = {
@@ -245,13 +246,14 @@ export const ReIdentification = ({
         const [x1_, y1_, x2_, y2_] = bboxes[i]
         const feature = features[i]
 
-        const similarityScore = getSimilarityScore(
+        const [totalSScore, partSScores] = getSimilarityScore(
           feature,
           featureToCompareRef.current,
           feModel.partSimilarityThresholds,
         )
+        const totalVScore = getTotalVisibilityScore(feature)
 
-        const isMatch = similarityScore >= feModel.similarityThreshold
+        const isMatch = totalSScore >= feModel.similarityThreshold
         const isVisible = relativelyVisible(
           featureToCompareRef.current,
           feature,
@@ -276,16 +278,37 @@ export const ReIdentification = ({
 
         ctx.font = `${FONT_SIZE}px Arial`
 
-        const similarityColor = getSimilarityColor(
-          similarityScore,
+        const totalSimilarityColor = getSimilarityColor(
+          totalSScore,
           feModel.similarityThreshold,
         )
 
-        const similarityText = `Similarity: ${similarityScore.toFixed(2)}`
+        const totalSimilarityText = `Total Similarity: ${totalSScore.toFixed(2)}`
 
-        const visibilityColors = [
-          getTotalVisibilityColor(feature, feModel.visibilityThreshold),
-        ]
+        const totalVisibilityColor = getVisibilityColor(
+          totalVScore,
+          feModel.visibilityThreshold,
+        )
+
+        const totalVisibilityText = `Total Visibility: ${totalVScore.toFixed(2)}`
+
+        const segmentNameTexts = feModel.segmentNames.map((name) => name + " ")
+
+        const similarityTexts = ["Similarity: "]
+
+        const similarityColors = [totalSimilarityColor]
+
+        for (let j = 0; j < feature.vScores.length; j++) {
+          similarityColors.push(
+            getSimilarityColor(
+              partSScores[j],
+              feModel.partSimilarityThresholds[j],
+            ),
+          )
+          similarityTexts.push(partSScores[j].toFixed(2) + " ")
+        }
+
+        const visibilityColors = [totalVisibilityColor]
 
         const visibilityTexts = ["Visibility: "]
 
@@ -296,23 +319,68 @@ export const ReIdentification = ({
           visibilityTexts.push(feature.vScores[j].toFixed(2) + " ")
         }
 
+        const segmentNameColors = []
+
+        for (let j = 0; j < feature.vScores.length; j++) {
+          segmentNameColors.push(
+            mergeColors(similarityColors[j + 1], visibilityColors[j + 1]),
+          )
+        }
+
+        const tableWidths = []
+        for (let j = 0; j < feature.vScores.length + 1; j++) {
+          const widths = [
+            ctx.measureText(similarityTexts[j]).width,
+            ctx.measureText(visibilityTexts[j]).width,
+          ]
+          if (j > 0) {
+            widths.push(ctx.measureText(segmentNameTexts[j - 1]).width)
+          }
+          tableWidths.push(Math.max(...widths))
+        }
+
         const textWidth = Math.max(
-          ctx.measureText(similarityText).width,
-          ctx.measureText(visibilityTexts.join("")).width,
+          ctx.measureText(totalSimilarityText).width,
+          ctx.measureText(totalVisibilityText).width,
+          tableWidths.reduce((acc, cur) => acc + cur, 0),
         )
 
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
         ctx.fillRect(
           x1,
-          Math.max(y1 - 5 - FONT_SIZE * 2, 0),
+          Math.max(y1 - 5 - FONT_SIZE * 5, 0),
           textWidth + LINE_WIDTH * 2,
-          FONT_SIZE * 2 + 5,
+          FONT_SIZE * 5 + 5,
         )
 
-        const similarityTextY = Math.max(y1 - 5 - FONT_SIZE, FONT_SIZE)
+        const topY = Math.max(y1 - 5 - FONT_SIZE * 4, FONT_SIZE)
 
-        ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
-        ctx.fillText(similarityText, x1 + LINE_WIDTH, similarityTextY)
+        ctx.fillStyle = `rgb(${totalSimilarityColor.join(", ")})`
+        ctx.fillText(totalSimilarityText, x1 + LINE_WIDTH, topY)
+
+        ctx.fillStyle = `rgb(${totalVisibilityColor.join(", ")})`
+        ctx.fillText(totalVisibilityText, x1 + LINE_WIDTH, topY + FONT_SIZE)
+
+        let segnametNameTextX = x1 + LINE_WIDTH + tableWidths[0]
+
+        for (let j = 0; j < segmentNameTexts.length; j++) {
+          const segmentNameText = segmentNameTexts[j]
+          ctx.fillStyle = `rgb(${segmentNameColors[j].join(", ")})`
+          ctx.fillText(segmentNameText, segnametNameTextX, topY + FONT_SIZE * 2)
+
+          segnametNameTextX += tableWidths[j + 1]
+        }
+
+        let similarityTextX = x1 + LINE_WIDTH
+
+        for (let j = 0; j < similarityColors.length; j++) {
+          const similarityColor = similarityColors[j]
+          const similarityText = similarityTexts[j]
+          ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
+          ctx.fillText(similarityText, similarityTextX, topY + FONT_SIZE * 3)
+
+          similarityTextX += tableWidths[j]
+        }
 
         let visibilityTextX = x1 + LINE_WIDTH
 
@@ -320,13 +388,9 @@ export const ReIdentification = ({
           const visibilityColor = visibilityColors[j]
           const visibilityText = visibilityTexts[j]
           ctx.fillStyle = `rgb(${visibilityColor.join(", ")})`
-          ctx.fillText(
-            visibilityText,
-            visibilityTextX,
-            similarityTextY + FONT_SIZE,
-          )
+          ctx.fillText(visibilityText, visibilityTextX, topY + FONT_SIZE * 4)
 
-          visibilityTextX += ctx.measureText(visibilityText).width
+          visibilityTextX += tableWidths[j]
         }
       }
     },
