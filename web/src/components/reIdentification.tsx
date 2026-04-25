@@ -27,7 +27,6 @@ import {
   getVisibilityColor,
   getTotalVisibilityScore,
   relativelyVisible,
-  visible,
   mergeColors,
 } from "./func"
 
@@ -604,9 +603,10 @@ const PersonSelectModal = ({
       const feature = snap.features[i]
       const [x1, y1, x2, y2] = snap.bboxes[i]
 
-      const visibleColor = visible(feature, feModel.visibilityThreshold)
-        ? COLOR_OF_MATCH
-        : COLOR_OF_UNMATCH
+      const visibleColor =
+        getTotalVisibilityScore(feature) >= feModel.visibilityThreshold
+          ? COLOR_OF_MATCH
+          : COLOR_OF_UNMATCH
 
       ctxForScene.strokeStyle = `rgb(${visibleColor.join(", ")}`
       ctxForScene.lineWidth = LINE_WIDTH
@@ -646,6 +646,7 @@ const PersonSelectModal = ({
         <div>
           <Carousel
             imageUrls={cropUrls}
+            descriptionLines={feModel.segmentNames.length + 1}
             descriptions={snap?.features.map(({ vScores }, i) => (
               <Fragment key={i}>
                 <table>

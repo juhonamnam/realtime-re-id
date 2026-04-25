@@ -23,12 +23,14 @@ type ClickMove = "left" | "right" | null
 export const Carousel = ({
   imageUrls,
   descriptions,
+  descriptionLines,
   slideRef,
   slideState: [slide, _setSlide],
   aspectRatio = 1,
 }: {
   imageUrls: string[]
   descriptions?: React.ReactNode[]
+  descriptionLines: number
   slideRef: React.RefObject<number>
   slideState: [number, React.Dispatch<React.SetStateAction<number>>]
   aspectRatio?: number
@@ -311,15 +313,25 @@ export const Carousel = ({
       return (
         <div className="my-carousel-item" style={{ width }} key={idx}>
           <img
-            className={
-              description ? "my-carousel-item-img-with-desc" : undefined
+            style={
+              description
+                ? {
+                    maxHeight: `calc(100% - ${(descriptionLines * 13) / 8}em)`,
+                  }
+                : {}
             }
             src={url}
             draggable={false}
             alt={`${idx}`}
           />
           {description && (
-            <div className="my-carousel-item-desc">{description}</div>
+            <div
+              style={{
+                height: `${(descriptionLines * 13) / 8}em`,
+              }}
+            >
+              {description}
+            </div>
           )}
         </div>
       )

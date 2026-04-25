@@ -118,10 +118,6 @@ export const getVisibilityColor = (
   ]
 }
 
-export const visible = (feature: Feature, threshold: number) => {
-  return feature.vScores.every((score) => score >= threshold)
-}
-
 export const relativelyVisible = (
   featureToCompare: Feature,
   feature: Feature,
