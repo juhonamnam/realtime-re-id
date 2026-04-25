@@ -6,12 +6,12 @@ export const OFFSET_REM = 13
 
 export const PD_MODELS: { [key: string]: PDModelInfo } = {
   "YOLOv11 320x320": {
-    path: `${baseUrl}model/yolo11n_person-detection_320x320.onnx`,
+    path: `${baseUrl}/model/yolo11n_person-detection_320x320.onnx`,
     shape: [320, 320],
     threshold: 0.5,
   },
   "YOLOv11 640x640": {
-    path: `${baseUrl}model/yolo11n_person-detection_640x640.onnx`,
+    path: `${baseUrl}/model/yolo11n_person-detection_640x640.onnx`,
     shape: [640, 640],
     threshold: 0.5,
   },
@@ -19,7 +19,7 @@ export const PD_MODELS: { [key: string]: PDModelInfo } = {
 
 export const FE_MODELS: { [key: string]: FEModelInfo } = {
   "ReID M3Small 5a24e 64x192": {
-    path: `${baseUrl}model/reid_m3small_5a24e_64x192.onnx`,
+    path: `${baseUrl}/model/reid_m3small_5a24e_64x192.onnx`,
     shape: [192, 64],
     similarityThreshold: 0.58,
     partSimilarityThresholds: [0.5, 0.6, 0.5, 0.5, 0.5],
