@@ -57,7 +57,7 @@ export const videoToTensor = async (
   return { tensor, padding, canvas }
 }
 
-// Does not keep ratio
+// Keep ratio with letterbox padding
 export const cropCanvasToTensor = async (
   canvas: OffscreenCanvas,
   bboxes: [number, number, number, number][],
@@ -79,16 +79,33 @@ export const cropCanvasToTensor = async (
     const width = x2 - x1
     const height = y2 - y1
 
+    const yResizeRatio = resizeHeight / height
+    const xResizeRatio = resizeWidth / width
+
+    const scale = Math.min(yResizeRatio, xResizeRatio)
+
+    let topPadding, leftPadding
+
+    // ctx.drawImage(video, 0, 0, videoWidth * scale, videoHeight * scale)
+
+    if (yResizeRatio < xResizeRatio) {
+      topPadding = 0
+      leftPadding = (1 - yResizeRatio / xResizeRatio) * (resizeWidth / 2)
+    } else {
+      leftPadding = 0
+      topPadding = (1 - xResizeRatio / yResizeRatio) * (resizeHeight / 2)
+    }
+
     ctx.drawImage(
       canvas,
       x1,
       y1,
       width,
       height,
-      0,
-      0,
-      resizeWidth,
-      resizeHeight,
+      leftPadding,
+      topPadding,
+      width * scale,
+      height * scale,
     )
 
     const { data } = ctx.getImageData(0, 0, resizeWidth, resizeHeight)
