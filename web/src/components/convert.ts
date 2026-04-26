@@ -60,17 +60,17 @@ export const captureVideo = async (
 export const cropCanvasToTensor = async (
   canvas: OffscreenCanvas,
   bboxes: [number, number, number, number][],
-  resize: readonly [number, number], // [height, width]
+  targetSize: readonly [number, number], // [height, width]
 ) => {
-  const [resizeHeight, resizeWidth] = resize
+  const [targetHeight, targetWidth] = targetSize
 
-  const canvasForCrop = new OffscreenCanvas(resizeWidth, resizeHeight)
+  const canvasForCrop = new OffscreenCanvas(targetWidth, targetHeight)
   const ctx = canvasForCrop.getContext("2d")
   if (!ctx) {
     throw new Error("Failed to get 2d context")
   }
 
-  const pixelCount = resizeWidth * resizeHeight
+  const pixelCount = targetWidth * targetHeight
   const float32Data = new Float32Array(bboxes.length * 3 * pixelCount)
 
   for (let batch = 0; batch < bboxes.length; batch++) {
@@ -78,19 +78,19 @@ export const cropCanvasToTensor = async (
     const width = x2 - x1
     const height = y2 - y1
 
-    const yResizeRatio = resizeHeight / height
-    const xResizeRatio = resizeWidth / width
+    const yResizeScale = targetHeight / height
+    const xResizeScale = targetWidth / width
 
-    const scale = Math.min(yResizeRatio, xResizeRatio)
+    const scale = Math.min(yResizeScale, xResizeScale)
 
     let topPadding, leftPadding
 
-    if (yResizeRatio < xResizeRatio) {
+    if (yResizeScale < xResizeScale) {
       topPadding = 0
-      leftPadding = (1 - yResizeRatio / xResizeRatio) * (resizeWidth / 2)
+      leftPadding = (1 - yResizeScale / xResizeScale) * (targetWidth / 2)
     } else {
       leftPadding = 0
-      topPadding = (1 - xResizeRatio / yResizeRatio) * (resizeHeight / 2)
+      topPadding = (1 - xResizeScale / yResizeScale) * (targetHeight / 2)
     }
 
     ctx.drawImage(
@@ -105,7 +105,12 @@ export const cropCanvasToTensor = async (
       height * scale,
     )
 
-    const { data } = ctx.getImageData(0, 0, resizeWidth, resizeHeight)
+    const { data } = ctx.getImageData(0, 0, targetWidth, targetHeight)
+
+    // Debug
+    // const blob = await canvasForCrop.convertToBlob()
+    // const url = URL.createObjectURL(blob)
+    // console.log(url)
 
     for (let i = 0; i < pixelCount; i++) {
       const offset = i * 4
@@ -118,8 +123,8 @@ export const cropCanvasToTensor = async (
   const tensor = new ort.Tensor("float32", float32Data, [
     bboxes.length,
     3,
-    resizeHeight,
-    resizeWidth,
+    targetHeight,
+    targetWidth,
   ])
 
   return tensor
