@@ -26,7 +26,7 @@ import {
   getSimilarityScore,
   getVisibilityColor,
   getTotalVisibilityScore,
-  relativelyVisible,
+  getComparability,
   mergeColors,
 } from "./func"
 
@@ -266,14 +266,16 @@ export const ReIdentification = ({
         const totalVScore = getTotalVisibilityScore(feature)
 
         const isMatch = totalSScore >= feModel.similarityThreshold
-        const isVisible = relativelyVisible(
+
+        const comparability = getComparability(
           featureToCompareRef.current,
           feature,
-          feModel.visibilityThreshold,
         )
 
+        const comparable = comparability >= feModel.visibilityThreshold
+
         const matchColor =
-          isMatch && isVisible ? COLOR_OF_MATCH : COLOR_OF_UNMATCH
+          isMatch && comparable ? COLOR_OF_MATCH : COLOR_OF_UNMATCH
 
         const x1 = flipRef.current
           ? camData.clientWidth - x2_ * xRatio

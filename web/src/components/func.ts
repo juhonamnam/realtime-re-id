@@ -77,7 +77,8 @@ export const getSimilarityScore = (
 
 export const getTotalVisibilityScore = (feature: Feature) => {
   return (
-    feature.vScores.reduce((acc, cur) => acc + cur, 0) / feature.vScores.length
+    feature.vScores.reduce((acc, score) => acc + score, 0) /
+    feature.vScores.length
   )
 }
 
@@ -118,13 +119,21 @@ export const getVisibilityColor = (
   ]
 }
 
-export const relativelyVisible = (
+export const getComparability = (
   featureToCompare: Feature,
   feature: Feature,
-  threshold: number,
 ) => {
-  return feature.vScores.every((score, i) =>
-    featureToCompare.vScores[i] >= threshold ? score >= threshold : true,
+  return (
+    feature.vScores.reduce((acc, score, i) => {
+      const compareScore = featureToCompare.vScores[i]
+      const unknownRatio = 1 - compareScore
+
+      return (
+        acc +
+        unknownRatio +
+        compareScore * (score / Math.max(score, compareScore))
+      )
+    }) / feature.vScores.length
   )
 }
 
