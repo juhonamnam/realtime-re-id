@@ -10,7 +10,7 @@ import { useCamData, Cam, CamWrapper } from "./cam"
 import { logger } from "./logger"
 import { useLoading } from "./loading"
 import * as ort from "onnxruntime-web"
-import { cropCanvasToTensor, videoToTensor } from "./convert"
+import { cropCanvasToTensor, captureVideo } from "./convert"
 import { Button, Modal } from "react-bootstrap"
 import { Carousel } from "./carousel"
 import type { Feature, FEModelInfo, PDModelInfo, Snap, Status } from "./type"
@@ -106,6 +106,7 @@ export const ReIdentification = ({
       pdSession: ort.InferenceSession,
       tensor: ort.Tensor,
       pdModel: PDModelInfo,
+      resizeScale: number,
     ) => {
       const [inputName] = pdSession.inputNames
       const [outputName] = pdSession.outputNames
@@ -126,10 +127,10 @@ export const ReIdentification = ({
           continue
         }
 
-        const x1 = bboxesData[i]
-        const x2 = bboxesData[i + 2]
-        const y1 = bboxesData[i + 1]
-        const y2 = bboxesData[i + 3]
+        const x1 = bboxesData[i] / resizeScale
+        const x2 = bboxesData[i + 2] / resizeScale
+        const y1 = bboxesData[i + 1] / resizeScale
+        const y2 = bboxesData[i + 3] / resizeScale
 
         bboxList.push([x1, y1, x2, y2])
       }
@@ -196,11 +197,11 @@ export const ReIdentification = ({
   const takeSnapshot = async (pdModel: PDModelInfo, feModel: FEModelInfo) => {
     if (!camRef.current) return
     if (!session.pd || !session.fe) return
-    const { tensor, padding, canvas } = await videoToTensor(
+    const { tensor, canvas, resizeScale } = await captureVideo(
       camRef.current,
       pdModel.shape,
     )
-    const bboxes = await detectPerson(session.pd, tensor, pdModel)
+    const bboxes = await detectPerson(session.pd, tensor, pdModel, resizeScale)
     tensor.dispose()
     if (bboxes.length > 0) {
       const features = await extractFeatures(
@@ -209,7 +210,7 @@ export const ReIdentification = ({
         bboxes,
         feModel,
       )
-      setSnap({ canvas, bboxes, padding, features })
+      setSnap({ canvas, bboxes, features })
       setStatus("select")
     }
   }
@@ -230,16 +231,21 @@ export const ReIdentification = ({
 
       if (!featureToCompareRef.current) return
 
-      const { tensor, padding, canvas } = await videoToTensor(
+      const { tensor, canvas, resizeScale } = await captureVideo(
         camData,
         pdModel.shape,
       )
 
-      const bboxes = await detectPerson(session.pd, tensor, pdModel)
+      const bboxes = await detectPerson(
+        session.pd,
+        tensor,
+        pdModel,
+        resizeScale,
+      )
       if (!bboxes.length) return
 
-      const xRatio = camData.clientWidth / (pdModel.shape[1] * (1 - padding.x))
-      const yRatio = camData.clientHeight / (pdModel.shape[0] * (1 - padding.y))
+      const xRatio = camData.clientWidth / canvas.width
+      const yRatio = camData.clientHeight / canvas.height
 
       const features = await extractFeatures(
         session.fe,
@@ -580,8 +586,8 @@ const PersonSelectModal = ({
       setCropUrls(cropUrls_)
     })()
 
-    const sourceWidth = snap.canvas.width * (1 - snap.padding.x)
-    const sourceHeight = snap.canvas.height * (1 - snap.padding.y)
+    const sourceWidth = snap.canvas.width
+    const sourceHeight = snap.canvas.height
 
     const canvasForScene = new OffscreenCanvas(sourceWidth, sourceHeight)
     const ctxForScene = canvasForScene.getContext("2d")

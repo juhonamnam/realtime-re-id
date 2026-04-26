@@ -1,45 +1,44 @@
 import * as ort from "onnxruntime-web"
 
 // Keep ratio with padding
-export const videoToTensor = async (
+export const captureVideo = async (
   video: HTMLVideoElement,
-  resize: readonly [number, number], // [height, width]
+  targetSize: readonly [number, number], // [height, width]
 ) => {
-  const [resizeHeight, resizeWidth] = resize
+  const [targetHeight, targetWidth] = targetSize
   const [videoWidth, videoHeight] = [video.videoWidth, video.videoHeight]
 
-  const canvas = new OffscreenCanvas(resizeWidth, resizeHeight)
-  const ctx = canvas.getContext("2d")
+  const capture = new OffscreenCanvas(videoWidth, videoHeight)
+  const captureCtx = capture.getContext("2d")
+  if (!captureCtx) {
+    throw new Error("Failed to get 2d context")
+  }
+  captureCtx.drawImage(video, 0, 0, videoWidth, videoHeight)
+
+  const canvForConvert = new OffscreenCanvas(targetWidth, targetHeight)
+  const ctx = canvForConvert.getContext("2d")
   if (!ctx) {
     throw new Error("Failed to get 2d context")
   }
 
-  const yResizeRatio = resizeHeight / videoHeight
-  const xResizeRatio = resizeWidth / videoWidth
+  const yResizeScale = targetHeight / videoHeight
+  const xResizeScale = targetWidth / videoWidth
 
-  const scale = Math.min(yResizeRatio, xResizeRatio)
+  const resizeScale = Math.min(yResizeScale, xResizeScale)
 
-  let padding
-
-  if (yResizeRatio < xResizeRatio) {
-    padding = {
-      y: 0,
-      x: 1 - yResizeRatio / xResizeRatio,
-    }
-  } else {
-    padding = {
-      y: 1 - xResizeRatio / yResizeRatio,
-      x: 0,
-    }
-  }
-
-  ctx.drawImage(video, 0, 0, videoWidth * scale, videoHeight * scale)
+  ctx.drawImage(
+    capture,
+    0,
+    0,
+    videoWidth * resizeScale,
+    videoHeight * resizeScale,
+  )
 
   const { data, width, height } = ctx.getImageData(
     0,
     0,
-    resizeWidth,
-    resizeHeight,
+    targetWidth,
+    targetHeight,
   )
 
   const pixelCount = width * height
@@ -54,7 +53,7 @@ export const videoToTensor = async (
 
   const tensor = new ort.Tensor("float32", float32Data, [1, 3, height, width])
 
-  return { tensor, padding, canvas }
+  return { tensor, canvas: capture, resizeScale }
 }
 
 // Keep ratio with letterbox padding
@@ -85,8 +84,6 @@ export const cropCanvasToTensor = async (
     const scale = Math.min(yResizeRatio, xResizeRatio)
 
     let topPadding, leftPadding
-
-    // ctx.drawImage(video, 0, 0, videoWidth * scale, videoHeight * scale)
 
     if (yResizeRatio < xResizeRatio) {
       topPadding = 0

@@ -23,6 +23,5 @@ export type Feature = {
 export type Snap = {
   canvas: OffscreenCanvas
   bboxes: [number, number, number, number][]
-  padding: { x: number; y: number }
   features: Feature[]
 }
