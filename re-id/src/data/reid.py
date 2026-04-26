@@ -1,3 +1,4 @@
+import torch.nn as nn
 from torchvision import transforms
 from torch.utils.data import dataset
 from torchvision.datasets.folder import default_loader
@@ -5,6 +6,7 @@ from .transforms.RandomErasing import RandomErasing
 from .transforms.RandomHorizontalFlip import RandomHorizontalFlip
 from .transforms.RandomCrop import RandomCrop
 from .transforms.LetterboxPad import LetterboxPad
+from .transforms.RandomResolutionReduce import RandomResolutionReduce
 import os
 import re
 import collections
@@ -49,42 +51,51 @@ def parse_annotation(annotation_path):
     
     return image_path, id, camera
 
-def get_transform(image_resolution,
-                  generator,
-                  random_crop,
-                  random_horizontal_flip,
-                  random_erasing):
-    t = []
+class ReIDTransform(nn.Module):
+    def __init__(self, image_resolution, generator, random_crop,
+                 random_horizontal_flip, random_erasing,
+                 random_resolution_reduce):
+        super().__init__()
 
-    if random_crop:
-        t.append(RandomCrop(generator=generator))
+        t = []
 
-    t.append(transforms.ToTensor())
+        if random_crop:
+            t.append(RandomCrop(generator=generator))
 
-    t.append(LetterboxPad(target_size=image_resolution))
+        t.append(transforms.ToTensor())
 
-    if random_horizontal_flip:
-        t.append(RandomHorizontalFlip(generator=generator))
+        if random_erasing:
+            t.append(RandomErasing(generator=generator))
 
-    if random_erasing:
-        t.append(RandomErasing(generator=generator))
+        t.append(LetterboxPad(target_size=image_resolution))
+        # t.append(transforms.Resize(image_resolution))
 
-    return transforms.Compose(t)
+        if random_resolution_reduce:
+            t.append(RandomResolutionReduce(target_size=image_resolution, generator=generator))
 
+        if random_horizontal_flip:
+            t.append(RandomHorizontalFlip(generator=generator))
+
+        self.transforms = transforms.Compose(t)
+
+    def forward(self, image):
+        return self.transforms(image)
 
 def get_dataset(image_resolution,
                 data_stage,
                 generator=None,
-                random_crop=False,
+                random_crop=True,
                 random_horizontal_flip=True,
-                random_erasing=False):
+                random_erasing=False,
+                random_resolution_reduce=True):
     data_path = get_data_path()[data_stage]
 
-    transform = get_transform(image_resolution,
-                              generator,
-                              random_crop,
-                              random_horizontal_flip,
-                              random_erasing)
+    transform = ReIDTransform(image_resolution=image_resolution,
+                              generator=generator,
+                              random_crop=random_crop,
+                              random_horizontal_flip=random_horizontal_flip,
+                              random_erasing=random_erasing,
+                              random_resolution_reduce=random_resolution_reduce)
 
     return REIDDataset(transform, data_path)
 
@@ -116,8 +127,7 @@ class REIDDataset(dataset.Dataset):
         id_label = self._id2label[img_ann["id"]]
 
         image = self.loader(path)
-        if self.transform is not None:
-            image = self.transform(image)
+        image = self.transform(image)
 
         return image, id_label
 

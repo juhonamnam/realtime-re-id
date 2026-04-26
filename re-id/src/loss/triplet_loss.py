@@ -26,7 +26,7 @@ class TripletLoss(nn.Module):
 
         dist_w = weights.t().unsqueeze(1).expand(vector_num, batch, batch)             # vector_num x batch x batch
         dist_w = torch.min(dist_w, dist_w.permute(0, 2, 1))                            # vector_num x batch x batch
-        dist_w /= dist_w.sum(dim=0, keepdim=True)                                      # vector_num x batch x batch
+        dist_w /= dist_w.sum(dim=0, keepdim=True).clamp(min=1e-12)                     # vector_num x batch x batch
 
         dist = (dist * dist_w).sum(dim=0)                                              # batch x batch
 

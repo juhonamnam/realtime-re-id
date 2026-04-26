@@ -10,6 +10,16 @@ from .mobilenetv3 import MobilenetV3
 from src.utils.file_path import get_weight_file_path, get_pretrained_file_path, get_export_file_path
 
 
+# ImageNet Normalization
+class Normalize(nn.Module):
+    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+        super().__init__()
+        self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1))
+        self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1))
+
+    def forward(self, x):
+        return (x - self.mean) / self.std
+
 class ReIDModel(nn.Module):
     def __init__(self,
                  model_variant,
@@ -42,6 +52,8 @@ class ReIDModel(nn.Module):
 
         self.export_file_path = get_export_file_path(f"{self.model_name}.pt")
         self.onnx_export_file_path = get_export_file_path(f"{self.model_name}.onnx")
+
+        self.normalize = Normalize()
 
         if model_variant == "m3small":
             self.backbone = MobilenetV3(variant="small", pretrained=backbone_pretrained, use_fpn=True, fpn_out_ch=192)
@@ -76,14 +88,16 @@ class ReIDModel(nn.Module):
 
 
     def _forward(self, x: torch.Tensor):
+        x = self.normalize(x)
         fused_feat, local_feat = self.backbone(x)                                # batch, out_ch, height, width
         seg = self.segmentation(fused_feat)                                      # batch, segmentation_num, height, width
 
         raw_att = seg[:, self.seg_to_att_indices]                                # batch, attention_num, height, width
 
-        att_max = raw_att.amax(dim=1, keepdim=True)                              # batch, 1, height, width 
-        att_mask = 1 - torch.ceil(att_max - raw_att)                             # batch, attention_num, height, width
-        att = raw_att * att_mask                                                 # batch, attention_num, height, width
+        att_max = raw_att.max(dim=1, keepdim=True)                               # batch, 1, height, width 
+
+        att = torch.zeros_like(raw_att)                                          # batch, attention_num, height, width
+        att = att.scatter(1, att_max.indices, att_max.values)                    # batch, attention_num, height, width
 
         v_scores = att.amax(dim=(2, 3))                                          # batch, attention_num
 

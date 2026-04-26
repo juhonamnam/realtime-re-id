@@ -1,5 +1,7 @@
+import torch.nn as nn
 from torchvision import transforms
 import torch.nn.functional as F
+import torchvision.transforms.functional as TF
 import torch
 from torch.utils.data import dataset
 from torchvision.datasets.folder import default_loader
@@ -9,6 +11,10 @@ from src.utils.file_path import get_dataset_path, get_tmp_path
 from src.utils.segment_info import get_segment_groups
 import os
 from .transforms.LetterboxPad import LetterboxPad
+from .transforms.RandomCrop import get_random_crop_params
+from .transforms.RandomHorizontalFlip import should_horizontal_flip
+from .transforms.RandomResolutionReduce import RandomResolutionReduce
+from PIL import Image
 
 DATASET_NAME = "coco"
 
@@ -32,51 +38,111 @@ def get_data_path():
         },
     }
 
-def get_image_transform(image_resolution):
-    return transforms.Compose([
-        transforms.ToTensor(),
-        LetterboxPad(target_size=image_resolution),
-    ])
+class SegTransform(nn.Module):
+    def __init__(self, image_resolution, generator=None,
+                 random_crop=True, random_horizontal_flip=True,
+                 random_resolution_reduce=True):
+        super().__init__()
+        self.generator = generator
+        self.random_crop = random_crop
+        self.random_horizontal_flip = random_horizontal_flip
 
-def get_mask_transform(image_resolution):
-    return LetterboxPad(target_size=image_resolution,
-                        interpolation=transforms.InterpolationMode.NEAREST)
+        t = []
 
-def get_train_dataset(image_resolution, seg_variant):
+        t.append(LetterboxPad(target_size=image_resolution))
+
+        if random_resolution_reduce:
+            t.append(RandomResolutionReduce(target_size=image_resolution, generator=generator))
+
+        self.image_transform = transforms.Compose(t)
+        self.mask_transform = LetterboxPad(target_size=image_resolution,
+                                           interpolation=transforms.InterpolationMode.NEAREST)
+        # self.image_transform = transforms.Resize(image_resolution)
+        # self.mask_transform = transforms.Resize(image_resolution,
+        #                                         interpolation=transforms.InterpolationMode.NEAREST)
+
+    def forward(self, image, masks):
+        if self.random_crop:
+            do_crop, params = get_random_crop_params(image.size()[1:], generator=self.generator)
+            if do_crop:
+                image = TF.crop(image, *params)
+                masks = map(lambda m: TF.crop(m, *params), masks)
+
+        image = self.image_transform(image)
+
+        masks = list(map(lambda m: self.mask_transform(m), masks))
+
+        if self.random_horizontal_flip:
+            do_flip = should_horizontal_flip(generator=self.generator)
+            if do_flip:
+                image = TF.hflip(image)
+                masks = list(map(lambda m: TF.hflip(m), masks))
+
+        return image, masks
+
+def get_train_dataset(image_resolution,
+                      seg_variant,
+                      generator=None,
+                      random_crop=True,
+                      random_horizontal_flip=True,
+                      random_resolution_reduce=True):
     annotation_path = get_data_path()["train"]["annotation"]
     image_dir = get_data_path()["train"]["image_dir"]
     cache_dir = get_data_path()["train"]["cache_dir"]
     coco = COCO(annotation_path)
 
-    image_transform = get_image_transform(image_resolution)
-    mask_transform = get_mask_transform(image_resolution)
-    return COCODataset(seg_variant, image_transform, mask_transform, coco, image_dir, cache_dir, image_resolution)
+    transform = SegTransform(image_resolution=image_resolution,
+                             generator=generator,
+                             random_crop=random_crop,
+                             random_horizontal_flip=random_horizontal_flip,
+                             random_resolution_reduce=random_resolution_reduce)
+    return COCODataset(seg_variant, transform, coco, image_dir,
+                       cache_dir, image_resolution)
 
-def get_val_dataset(image_resolution, seg_variant):
+def get_val_dataset(image_resolution,
+                    seg_variant,
+                    generator=None,
+                    random_crop=True,
+                    random_horizontal_flip=True,
+                    random_resolution_reduce=True):
     annotation_path = get_data_path()["val"]["annotation"]
     image_dir = get_data_path()["val"]["image_dir"]
     cache_dir = get_data_path()["val"]["cache_dir"]
     coco = COCO(annotation_path)
 
-    image_transform = get_image_transform(image_resolution)
-    mask_transform = get_mask_transform(image_resolution)
-    return COCODataset(seg_variant, image_transform, mask_transform, coco, image_dir, cache_dir, image_resolution)
+    transform = SegTransform(image_resolution=image_resolution,
+                             generator=generator,
+                             random_crop=random_crop,
+                             random_horizontal_flip=random_horizontal_flip,
+                             random_resolution_reduce=random_resolution_reduce)
+    return COCODataset(seg_variant, transform, coco, image_dir,
+                       cache_dir, image_resolution)
 
-def get_test_dataset(image_resolution, seg_variant):
+def get_test_dataset(image_resolution,
+                     seg_variant,
+                     generator=None,
+                     random_crop=True,
+                     random_horizontal_flip=True,
+                     random_resolution_reduce=True):
     annotation_path = get_data_path()["test"]["annotation"]
     image_dir = get_data_path()["test"]["image_dir"]
     cache_dir = get_data_path()["test"]["cache_dir"]
     coco = COCO(annotation_path)
 
-    image_transform = get_image_transform(image_resolution)
-    mask_transform = get_mask_transform(image_resolution)
-    return COCODataset(seg_variant, image_transform, mask_transform, coco, image_dir, cache_dir, image_resolution)
+    transform = SegTransform(image_resolution=image_resolution,
+                             generator=generator,
+                             random_crop=random_crop,
+                             random_horizontal_flip=random_horizontal_flip,
+                             random_resolution_reduce=random_resolution_reduce)
+    return COCODataset(seg_variant, transform, coco, image_dir,
+                       cache_dir, image_resolution)
 
 
 class COCODataset(dataset.Dataset):
-    def __init__(self, seg_variant, image_transform, mask_transform, coco, image_dir, cache_dir, image_resolution):
-        self.image_transform = image_transform
-        self.mask_transform = mask_transform
+    def __init__(self, seg_variant, transform, coco, image_dir,
+                 cache_dir, image_resolution):
+        self.transform = transform
+        self.to_tensor = transforms.ToTensor()
         self.loader = default_loader
         self.coco = coco
         self.image_dir = image_dir
@@ -103,8 +169,8 @@ class COCODataset(dataset.Dataset):
             image_info = self.coco.loadImgs(image_id)[0]
             image_path = f"{self.image_dir}/{image_info['file_name']}"
             image = self.loader(image_path)
-            cropped_image = image.crop((x_start, y_start, x_start + width, y_start + height))
-            img = self.image_transform(cropped_image)
+            img = image.crop((x_start, y_start, x_start + width, y_start + height))
+            img = self.to_tensor(img)
 
             os.makedirs(self.cache_dir, exist_ok=True)
             torch.save(img, img_cache_file)
@@ -120,10 +186,11 @@ class COCODataset(dataset.Dataset):
                 mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0),
                                      size=(int(height), int(width)),
                                      mode="nearest").squeeze(0)
-                mask = self.mask_transform(mask)
             else:
                 mask = torch.zeros(self.image_resolution, dtype=torch.float).unsqueeze(0)
             masks.append(mask)
+
+        img, masks = self.transform(img, masks)
 
         masks = torch.cat(masks, dim=0)
 

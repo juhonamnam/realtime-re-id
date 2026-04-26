@@ -3,6 +3,15 @@ from torch import nn
 from torchvision.transforms import functional as F
 
 
+def should_horizontal_flip(p=0.5, generator=None):
+    if generator:
+        chance = torch.rand(1, generator=generator, device=generator.device)
+    else:
+        chance = torch.rand(1)
+
+    return chance < p
+
+
 class RandomHorizontalFlip(nn.Module):
     def __init__(self, p=0.5, generator=None):
         super().__init__()
@@ -10,11 +19,8 @@ class RandomHorizontalFlip(nn.Module):
         self.generator = generator
 
     def forward(self, img):
-        if self.generator:
-            p = torch.rand(1, generator=self.generator, device=self.generator.device)
-        else:
-            p = torch.rand(1)
+        do_flip = should_horizontal_flip(p=self.p, generator=self.generator)
 
-        if p > self.p:
+        if do_flip:
             return F.hflip(img)
         return img

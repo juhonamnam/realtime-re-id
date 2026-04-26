@@ -10,12 +10,12 @@ class LetterboxPad(nn.Module):
     while maintaining aspect ratio, then pads to exact target size.
     """
     
-    def __init__(self, target_size, pad_value=0, interpolation=transforms.InterpolationMode.BICUBIC):
+    def __init__(self, target_size, pad_value=0, interpolation=transforms.InterpolationMode.NEAREST):
         """
         Args:
             target_size (tuple): Target (height, width) resolution
             pad_value (float): Value to use for padding (default: 0)
-            interpolation (transforms.InterpolationMode): Interpolation method for resizing (default: BICUBIC)
+            interpolation (transforms.InterpolationMode): Interpolation method for resizing (default: NEAREST)
         """
         super(LetterboxPad, self).__init__()
         self.target_height, self.target_width = target_size

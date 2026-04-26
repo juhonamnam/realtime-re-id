@@ -26,12 +26,16 @@ def get_bb_dataloaders(seg_variant,
     batch_size = batch_id * batch_image
 
     seg_train_dataset = seg.get_train_dataset(image_resolution,
-                                              seg_variant)
+                                              seg_variant,
+                                              random_crop=True,
+                                              random_horizontal_flip=True,
+                                              random_resolution_reduce=True)
     re_id_train_dataset = reid.get_dataset(image_resolution,
                                            "train",
                                            random_crop=True,
                                            random_horizontal_flip=True,
-                                           random_erasing=False)
+                                           random_erasing=False,
+                                           random_resolution_reduce=True)
 
     re_id_train_sampler = ReIDRandomSampler(re_id_train_dataset,
                                             batch_id=batch_id,
@@ -53,13 +57,18 @@ def get_bb_dataloaders(seg_variant,
                                                pin_memory=True)
 
     seg_val_dataset = seg.get_val_dataset(image_resolution,
-                                          seg_variant)
+                                          seg_variant,
+                                          generator=val_generator,
+                                          random_crop=True,
+                                          random_horizontal_flip=True,
+                                          random_resolution_reduce=True)
     re_id_val_dataset = reid.get_dataset(image_resolution,
                                          "val",
                                          generator=val_generator,
                                          random_crop=True,
                                          random_horizontal_flip=True,
-                                         random_erasing=False)
+                                         random_erasing=False,
+                                         random_resolution_reduce=True)
     re_id_val_sampler = ReIDRandomSampler(re_id_val_dataset,
                                            batch_id=batch_id,
                                            batch_image=batch_image,
@@ -86,9 +95,13 @@ def get_bb_dataloaders(seg_variant,
 
 def get_seg_dataloaders(variant,
                         image_resolution,
-                        batch_size):
+                        batch_size,
+                        val_generator=None):
     train_dataset = seg.get_train_dataset(image_resolution,
-                                          variant)
+                                          variant,
+                                          random_crop=True,
+                                          random_horizontal_flip=True,
+                                          random_resolution_reduce=True)
 
     train_sampler = RandomSampler(train_dataset)
     train_loader = dataloader.DataLoader(train_dataset,
@@ -98,7 +111,11 @@ def get_seg_dataloaders(variant,
                                          pin_memory=True)
 
     val_dataset = seg.get_val_dataset(image_resolution,
-                                      variant)
+                                      variant,
+                                      generator=val_generator,
+                                      random_crop=True,
+                                      random_horizontal_flip=True,
+                                      random_resolution_reduce=True)
 
     val_loader = dataloader.DataLoader(val_dataset,
                                        batch_size=batch_size,
@@ -119,7 +136,8 @@ def get_re_id_dataloaders(image_resolution,
                                      "train",
                                      random_crop=True,
                                      random_horizontal_flip=True,
-                                     random_erasing=False)
+                                     random_erasing=False,
+                                     random_resolution_reduce=True)
 
     train_sampler = ReIDRandomSampler(train_dataset,
                                       batch_id=batch_id,
@@ -136,7 +154,8 @@ def get_re_id_dataloaders(image_resolution,
                                    generator=val_generator,
                                    random_crop=True,
                                    random_horizontal_flip=True,
-                                   random_erasing=False)
+                                   random_erasing=False,
+                                   random_resolution_reduce=True)
 
     val_sampler = ReIDRandomSampler(val_dataset,
                                     batch_id=batch_id,
@@ -156,7 +175,10 @@ def get_seg_test_data(seg_variant,
                       batch_size,
                       image_resolution):
     seg_dataset = seg.get_test_dataset(image_resolution,
-                                       seg_variant)
+                                       seg_variant,
+                                       random_crop=True,
+                                       random_horizontal_flip=True,
+                                       random_resolution_reduce=True)
     seg_dataloader = dataloader.DataLoader(seg_dataset,
                                            batch_size=batch_size,
                                            num_workers=8,
@@ -175,7 +197,8 @@ def get_re_id_test_data(batch_size,
                                   generator=generator,
                                   random_crop=random_crop,
                                   random_horizontal_flip=random_horizontal_flip,
-                                  random_erasing=random_erasing)
+                                  random_erasing=random_erasing,
+                                  random_resolution_reduce=True)
     ri_dataloader = dataloader.DataLoader(ri_dataset,
                                           batch_size=batch_size,
                                           num_workers=8,
