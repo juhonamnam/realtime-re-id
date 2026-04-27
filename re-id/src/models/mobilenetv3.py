@@ -120,7 +120,7 @@ class Features(nn.Sequential):
             ]
         elif variant == "small":
             self.irb_configs = [
-                {"input_ch": 16, "kernel": 3, "expanded_ch": 16,  "out_ch": 16, "use_se": True,  "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": True},
+                {"input_ch": 16, "kernel": 3, "expanded_ch": 16,  "out_ch": 16, "use_se": False,  "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": True},
                 {"input_ch": 16, "kernel": 3, "expanded_ch": 72,  "out_ch": 24, "use_se": False, "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": False},
                 {"input_ch": 24, "kernel": 3, "expanded_ch": 88,  "out_ch": 24, "use_se": False, "use_hs": False, "stride": 1, "dilation": 1, "fpn_layer": True},
                 {"input_ch": 24, "kernel": 5, "expanded_ch": 96,  "out_ch": 40, "use_se": True,  "use_hs": True,  "stride": 2, "dilation": 1, "fpn_layer": False},
