@@ -31,11 +31,23 @@ const getEmbSimilarityScore = (
   return dotProduct / denominator
 }
 
-const logisticRemap = (x: number, threshold: number): number => {
+const VALUE_AT_THRESHOLD = 0.8
+
+const logisticRemap = (x: number, threshold: number, exp = 2): number => {
+  if (x === 0) {
+    return 0
+  } else if (x === 1) {
+    return 1
+  }
+
   const logistic =
     1 /
     (1 +
-      Math.exp(Math.log(threshold / (1 - threshold)) - Math.log(x / (1 - x))))
+      Math.exp(
+        exp * Math.log(threshold / (1 - threshold)) +
+          Math.log((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD) -
+          exp * Math.log(x / (1 - x)),
+      ))
   return logistic
 }
 
@@ -49,12 +61,7 @@ export const getSimilarityScore = (
     combinedVScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
   }
 
-  const vScoreSum = combinedVScores.reduce((acc, score) => acc + score, 0)
-  if (vScoreSum === 0) {
-    return [0, thresholds.map(() => 0)] as const
-  }
-
-  let totalSScore = 0
+  let totalSScore = 1
   const partSScores = []
 
   for (let i = 0; i < feature1.embVecs.length; i++) {
@@ -67,14 +74,10 @@ export const getSimilarityScore = (
     partSScores.push(sScore)
 
     sScore = Math.max(sScore, 0)
-    if (threshold !== 0.5) {
-      sScore = logisticRemap(sScore, threshold)
-    }
+    sScore = logisticRemap(sScore, threshold)
 
-    totalSScore += combinedVScore * sScore
+    totalSScore *= 1 - combinedVScore + combinedVScore * sScore
   }
-
-  totalSScore /= vScoreSum
 
   return [totalSScore, partSScores] as const
 }
