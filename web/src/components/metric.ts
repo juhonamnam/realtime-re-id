@@ -31,7 +31,7 @@ const getEmbSimilarityScore = (
   return dotProduct / denominator
 }
 
-const VALUE_AT_THRESHOLD = 0.8
+const VALUE_AT_THRESHOLD = 0.7
 
 const logisticRemap = (x: number, threshold: number, exp = 2): number => {
   if (x === 0) {
