@@ -24,7 +24,7 @@ def get_emb_similarity_score(emb_vec1, emb_vec2):
     
     return score
 
-VALUE_AT_THRESHOLD = 0.8
+VALUE_AT_THRESHOLD = 0.7
 
 def logistic_remap(x, threshold, exp=2):
     x = x.clamp(min=1e-6, max=1 - 1e-6)
