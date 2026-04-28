@@ -14,7 +14,6 @@ from .transforms.LetterboxPad import LetterboxPad
 from .transforms.RandomCrop import get_random_crop_params
 from .transforms.RandomHorizontalFlip import should_horizontal_flip
 from .transforms.RandomResolutionReduce import RandomResolutionReduce
-from PIL import Image
 
 DATASET_NAME = "coco"
 
@@ -57,9 +56,6 @@ class SegTransform(nn.Module):
         self.image_transform = transforms.Compose(t)
         self.mask_transform = LetterboxPad(target_size=image_resolution,
                                            interpolation=transforms.InterpolationMode.NEAREST)
-        # self.image_transform = transforms.Resize(image_resolution)
-        # self.mask_transform = transforms.Resize(image_resolution,
-        #                                         interpolation=transforms.InterpolationMode.NEAREST)
 
     def forward(self, image, masks):
         if self.random_crop:
@@ -160,7 +156,7 @@ class COCODataset(dataset.Dataset):
     def _getitem(self, ann):
         [x_start, y_start, width, height] = ann["bbox"]
 
-        img_cache_file = f"{self.cache_dir}/{ann['id']}_img_{self.image_resolution[1]}x{self.image_resolution[0]}.pt"
+        img_cache_file = f"{self.cache_dir}/{ann['id']}_img.pt"
 
         if os.path.isfile(img_cache_file):
             img = torch.load(img_cache_file, weights_only=True)

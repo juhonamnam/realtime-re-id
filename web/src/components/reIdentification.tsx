@@ -23,12 +23,15 @@ import {
 } from "./const"
 import {
   getSimilarityColor,
-  getSimilarityScore,
   getVisibilityColor,
+  mergeColors,
+} from "./colorFunc"
+
+import {
+  getSimilarityScore,
   getTotalVisibilityScore,
   getComparability,
-  mergeColors,
-} from "./func"
+} from "./metric"
 
 type ReIdentificationProps = {
   pdModel: PDModelInfo

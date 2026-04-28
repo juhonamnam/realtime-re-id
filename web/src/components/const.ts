@@ -21,7 +21,7 @@ export const FE_MODELS: { [key: string]: FEModelInfo } = {
   "ReID M3Small 5a24e 64x192": {
     path: `${baseUrl}/model/reid_m3small_5a24e_64x192.onnx`,
     shape: [192, 64],
-    similarityThreshold: 0.63,
+    similarityThreshold: 0.66,
     partSimilarityThresholds: [0.5, 0.6, 0.5, 0.5, 0.5],
     visibilityThreshold: 0.7,
     segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg"],

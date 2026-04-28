@@ -68,7 +68,6 @@ class ReIDTransform(nn.Module):
             t.append(RandomErasing(generator=generator))
 
         t.append(LetterboxPad(target_size=image_resolution))
-        # t.append(transforms.Resize(image_resolution))
 
         if random_resolution_reduce:
             t.append(RandomResolutionReduce(target_size=image_resolution, generator=generator))

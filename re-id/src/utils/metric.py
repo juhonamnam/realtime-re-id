@@ -24,11 +24,12 @@ def get_emb_similarity_score(emb_vec1, emb_vec2):
     
     return score
 
-VALUE_AT_THRESHOLD = 0.7
+def logistic_remap(x, threshold):
+    return 1 / (1 + torch.exp(torch.log(torch.tensor(threshold / (1 - threshold))) - torch.log(x / (1 - x))))
 
 def get_similarity_score(feature1, feature2,
                          thresholds=0.5,
-                         exp=2, return_part_scores=False):
+                         return_part_scores=False):
     ft1_v_scores, ft1_emb_vecs = feature1
     ft2_v_scores, ft2_emb_vecs = feature2
 
@@ -39,14 +40,14 @@ def get_similarity_score(feature1, feature2,
 
     combined_v_scores = torch.cat((ft1_v_scores.unsqueeze(0), ft2_v_scores.unsqueeze(0)), dim=0).min(dim=0).values
 
-    total_s_score = torch.tensor(1.).to(combined_v_scores.device)
+    total_s_score = torch.tensor(0.).to(combined_v_scores.device)
 
     if return_part_scores:
         part_s_scores = []
 
     for i in range(ft_len):
         v_score = combined_v_scores[i]
-        unknown_ratio = 1 - v_score
+        threshold = thresholds[i]
 
         emb_vec1 = ft1_emb_vecs[i]
         emb_vec2 = ft2_emb_vecs[i]
@@ -58,15 +59,13 @@ def get_similarity_score(feature1, feature2,
         if return_part_scores:
             part_s_scores.append(s_score)
         
-        threshold = (thresholds[i] + 1) / 2
-        s_score = (s_score + 1) / 2
+        s_score = s_score.clamp(min=0)
+        if threshold != 0.5:
+            s_score = logistic_remap(s_score, threshold)
 
-        if s_score < threshold:
-            s_score = VALUE_AT_THRESHOLD / (threshold ** exp) * (s_score ** exp)
-        else:
-            s_score = 1 - ((1 - VALUE_AT_THRESHOLD) / ((1 - threshold) ** exp)) * ((1 - s_score) ** exp)
-
-        total_s_score *= unknown_ratio + v_score * s_score
+        total_s_score += v_score * s_score
+    
+    total_s_score /= combined_v_scores.sum().clamp(min=1e-6)
 
     if return_part_scores:
         return total_s_score, part_s_scores
