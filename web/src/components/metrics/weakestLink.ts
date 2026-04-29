@@ -1,4 +1,4 @@
-import type { Feature } from "./type"
+import type { Feature } from "../type"
 
 const dot = (vec1: Float32Array, vec2: Float32Array): number => {
   let result = 0
@@ -51,11 +51,11 @@ const logisticRemap = (x: number, threshold: number, exp = 2): number => {
   return logistic
 }
 
-export const getSimilarityScore = (
+export const getWeakestLinkSimilarity = (
   feature1: Feature,
   feature2: Feature,
   thresholds: number[],
-) => {
+): [number, number[]] => {
   const combinedVScores: number[] = []
   for (let i = 0; i < feature1.vScores.length; i++) {
     combinedVScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
@@ -79,30 +79,5 @@ export const getSimilarityScore = (
     totalSScore *= 1 - combinedVScore + combinedVScore * sScore
   }
 
-  return [totalSScore, partSScores] as const
-}
-
-export const getTotalVisibilityScore = (feature: Feature) => {
-  return (
-    feature.vScores.reduce((acc, score) => acc + score, 0) /
-    feature.vScores.length
-  )
-}
-
-export const getComparability = (
-  featureToCompare: Feature,
-  feature: Feature,
-) => {
-  return (
-    feature.vScores.reduce((acc, score, i) => {
-      const compareScore = featureToCompare.vScores[i]
-      const unknownRatio = 1 - compareScore
-
-      return (
-        acc +
-        unknownRatio +
-        compareScore * (score / Math.max(score, compareScore))
-      )
-    }) / feature.vScores.length
-  )
+  return [totalSScore, partSScores]
 }

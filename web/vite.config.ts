@@ -8,7 +8,7 @@ let base = "/"
 try {
   const url = new URL(pkg.homepage)
   base = url.pathname
-} catch (e) {
+} catch {
   base = pkg.homepage || "/"
 }
 

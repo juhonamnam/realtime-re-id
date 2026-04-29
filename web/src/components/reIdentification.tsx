@@ -13,37 +13,53 @@ import * as ort from "onnxruntime-web"
 import { cropCanvasToTensor, captureVideo } from "./convert"
 import { Button, Modal } from "react-bootstrap"
 import { Carousel } from "./carousel"
-import type { Feature, FEModelInfo, PDModelInfo, Snap, Status } from "./type"
+import type { Feature, Snap, Status } from "./type"
+import { LINE_WIDTH, FONT_SIZE } from "./const"
 import {
   COLOR_OF_MATCH,
   COLOR_OF_UNMATCH,
-  INITIAL_STATUS,
-  LINE_WIDTH,
-  FONT_SIZE,
-} from "./const"
-import {
   getSimilarityColor,
   getVisibilityColor,
   mergeColors,
-} from "./colorFunc"
+} from "./color"
 
 import {
-  getSimilarityScore,
-  getTotalVisibilityScore,
-  getComparability,
-} from "./metric"
+  useReIDConfig,
+  type PDModelInfo,
+  type FEModelInfo,
+  METRIC_TYPES,
+} from "./reidConfig"
 
-type ReIdentificationProps = {
-  pdModel: PDModelInfo
-  feModel: FEModelInfo
+const getTotalVisibilityScore = (feature: Feature) => {
+  return (
+    feature.vScores.reduce((acc, score) => acc + score, 0) /
+    feature.vScores.length
+  )
 }
 
-export const ReIdentification = ({
-  pdModel,
-  feModel,
-}: ReIdentificationProps) => {
-  const { setCamDataHandler, clear, flipRef, camRef } = useCamData()
+const getComparability = (featureToCompare: Feature, feature: Feature) => {
+  return (
+    feature.vScores.reduce((acc, score, i) => {
+      const compareScore = featureToCompare.vScores[i]
+      const unknownRatio = 1 - compareScore
+
+      return (
+        acc +
+        unknownRatio +
+        compareScore * (score / Math.max(score, compareScore))
+      )
+    }) / feature.vScores.length
+  )
+}
+
+export const ReIdentification = () => {
   const { setLoading } = useLoading()
+  const { setCamDataHandler, flip, camRef } = useCamData()
+  const { pdModel, feModel, metricType, showComparsionDetail } = useReIDConfig()
+
+  const flipRef = useRef(false)
+  const metricTypeRef = useRef(METRIC_TYPES[0])
+  const comparisonDetailRef = useRef(false)
 
   const [session, setSession] = useState<{
     pd?: ort.InferenceSession
@@ -52,7 +68,7 @@ export const ReIdentification = ({
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const [status, setStatus] = useState<Status>(INITIAL_STATUS)
+  const [status, setStatus] = useState<Status>("default")
 
   const [snap, setSnap] = useState<Snap | null>(null)
   const featureToCompareRef = useRef<Feature | null>(null)
@@ -61,6 +77,18 @@ export const ReIdentification = ({
   const innerRef = useRef<HTMLDivElement>(null)
 
   const resizeInnerThrottleOccupied = useRef(false)
+
+  useEffect(() => {
+    flipRef.current = flip
+  }, [flip])
+
+  useEffect(() => {
+    metricTypeRef.current = metricType
+  }, [metricType])
+
+  useEffect(() => {
+    comparisonDetailRef.current = showComparsionDetail
+  }, [showComparsionDetail])
 
   useEffect(() => {
     if (wrapperRef.current === null || innerRef.current === null) return
@@ -261,14 +289,16 @@ export const ReIdentification = ({
         const [x1_, y1_, x2_, y2_] = bboxes[i]
         const feature = features[i]
 
-        const [totalSScore, partSScores] = getSimilarityScore(
+        const [totalSScore, partSScores] = metricTypeRef.current.function(
           feature,
           featureToCompareRef.current,
           feModel.partSimilarityThresholds,
         )
         const totalVScore = getTotalVisibilityScore(feature)
 
-        const isMatch = totalSScore >= feModel.similarityThreshold
+        const isMatch =
+          totalSScore >=
+          feModel.similarityThresholds[metricTypeRef.current.name]
 
         const comparability = getComparability(
           featureToCompareRef.current,
@@ -293,121 +323,132 @@ export const ReIdentification = ({
         ctx.lineWidth = LINE_WIDTH
         ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
 
-        ctx.font = `${FONT_SIZE}px Arial`
+        if (comparisonDetailRef.current) {
+          ctx.font = `${FONT_SIZE}px Arial`
 
-        const totalSimilarityColor = getSimilarityColor(
-          totalSScore,
-          feModel.similarityThreshold,
-        )
-
-        const totalSimilarityText = `Total Similarity: ${totalSScore.toFixed(2)}`
-
-        const totalVisibilityColor = getVisibilityColor(
-          totalVScore,
-          feModel.visibilityThreshold,
-        )
-
-        const totalVisibilityText = `Total Visibility: ${totalVScore.toFixed(2)}`
-
-        const segmentNameTexts = feModel.segmentNames.map((name) => name + " ")
-
-        const similarityTexts = ["Similarity "]
-
-        const similarityColors = [totalSimilarityColor]
-
-        for (let j = 0; j < feature.vScores.length; j++) {
-          similarityColors.push(
-            getSimilarityColor(
-              partSScores[j],
-              feModel.partSimilarityThresholds[j],
-            ),
+          const totalSimilarityColor = getSimilarityColor(
+            totalSScore,
+            feModel.similarityThresholds[metricTypeRef.current.name],
           )
-          similarityTexts.push(partSScores[j].toFixed(2) + " ")
-        }
 
-        const visibilityColors = [totalVisibilityColor]
+          const totalSimilarityText = `Total Similarity: ${totalSScore.toFixed(2)}`
 
-        const visibilityTexts = ["Visibility "]
-
-        for (let j = 0; j < feature.vScores.length; j++) {
-          visibilityColors.push(
-            getVisibilityColor(feature.vScores[j], feModel.visibilityThreshold),
+          const totalVisibilityColor = getVisibilityColor(
+            totalVScore,
+            feModel.visibilityThreshold,
           )
-          visibilityTexts.push(feature.vScores[j].toFixed(2) + " ")
-        }
 
-        const segmentNameColors = []
+          const totalVisibilityText = `Total Visibility: ${totalVScore.toFixed(2)}`
 
-        for (let j = 0; j < feature.vScores.length; j++) {
-          segmentNameColors.push(
-            mergeColors(similarityColors[j + 1], visibilityColors[j + 1]),
+          const segmentNameTexts = feModel.segmentNames.map(
+            (name) => name + " ",
           )
-        }
 
-        const tableWidths = [
-          Math.max(
-            ...segmentNameTexts.map((text) => ctx.measureText(text).width),
-          ),
-          Math.max(
-            ...similarityTexts.map((text) => ctx.measureText(text).width),
-          ),
-          Math.max(
-            ...visibilityTexts.map((text) => ctx.measureText(text).width),
-          ),
-        ]
+          const similarityTexts = ["Similarity "]
 
-        const textWidth = Math.max(
-          ctx.measureText(totalSimilarityText).width,
-          ctx.measureText(totalVisibilityText).width,
-          tableWidths.reduce((acc, cur) => acc + cur, 0),
-        )
+          const similarityColors = [totalSimilarityColor]
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-        ctx.fillRect(
-          x1,
-          Math.max(y1 - 5 - FONT_SIZE * (3 + feModel.segmentNames.length), 0),
-          textWidth + LINE_WIDTH * 2,
-          FONT_SIZE * (3 + feModel.segmentNames.length) + 5,
-        )
+          for (let j = 0; j < feature.vScores.length; j++) {
+            similarityColors.push(
+              getSimilarityColor(
+                partSScores[j],
+                feModel.partSimilarityThresholds[j],
+              ),
+            )
+            similarityTexts.push(partSScores[j].toFixed(2) + " ")
+          }
 
-        const topY = Math.max(
-          y1 - 5 - FONT_SIZE * (2 + feModel.segmentNames.length),
-          FONT_SIZE,
-        )
+          const visibilityColors = [totalVisibilityColor]
 
-        ctx.fillStyle = `rgb(${totalSimilarityColor.join(", ")})`
-        ctx.fillText(totalSimilarityText, x1 + LINE_WIDTH, topY)
+          const visibilityTexts = ["Visibility "]
 
-        ctx.fillStyle = `rgb(${totalVisibilityColor.join(", ")})`
-        ctx.fillText(totalVisibilityText, x1 + LINE_WIDTH, topY + FONT_SIZE)
+          for (let j = 0; j < feature.vScores.length; j++) {
+            visibilityColors.push(
+              getVisibilityColor(
+                feature.vScores[j],
+                feModel.visibilityThreshold,
+              ),
+            )
+            visibilityTexts.push(feature.vScores[j].toFixed(2) + " ")
+          }
 
-        for (let j = 0; j < similarityTexts.length; j++) {
-          if (j !== 0) {
-            ctx.fillStyle = `rgb(${segmentNameColors[j - 1].join(", ")})`
-            ctx.fillText(
-              segmentNameTexts[j - 1],
-              x1 + LINE_WIDTH,
-              topY + FONT_SIZE * 2 + j * FONT_SIZE,
+          const segmentNameColors = []
+
+          for (let j = 0; j < feature.vScores.length; j++) {
+            segmentNameColors.push(
+              mergeColors(similarityColors[j + 1], visibilityColors[j + 1]),
             )
           }
 
-          const similarityColor = similarityColors[j]
-          const similarityText = similarityTexts[j]
-          ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
-          ctx.fillText(
-            similarityText,
-            x1 + LINE_WIDTH + tableWidths[0],
-            topY + FONT_SIZE * 2 + j * FONT_SIZE,
+          const tableWidths = [
+            Math.max(
+              ...segmentNameTexts.map((text) => ctx.measureText(text).width),
+            ),
+            Math.max(
+              ...similarityTexts.map((text) => ctx.measureText(text).width),
+            ),
+            Math.max(
+              ...visibilityTexts.map((text) => ctx.measureText(text).width),
+            ),
+          ]
+
+          const textWidth = Math.max(
+            ctx.measureText(totalSimilarityText).width,
+            ctx.measureText(totalVisibilityText).width,
+            tableWidths.reduce((acc, cur) => acc + cur, 0),
           )
 
-          const visibilityColor = visibilityColors[j]
-          const visibilityText = visibilityTexts[j]
-          ctx.fillStyle = `rgb(${visibilityColor.join(", ")})`
-          ctx.fillText(
-            visibilityText,
-            x1 + LINE_WIDTH + tableWidths[0] + tableWidths[1],
-            topY + FONT_SIZE * 2 + j * FONT_SIZE,
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+          ctx.fillRect(
+            x1,
+            Math.max(y1 - 5 - FONT_SIZE * (3 + feModel.segmentNames.length), 0),
+            textWidth + LINE_WIDTH * 2,
+            FONT_SIZE * (3 + feModel.segmentNames.length) + 5,
           )
+
+          const topY = Math.max(
+            y1 - 5 - FONT_SIZE * (2 + feModel.segmentNames.length),
+            FONT_SIZE,
+          )
+
+          ctx.fillStyle = `rgb(${totalSimilarityColor.join(", ")})`
+          ctx.fillText(totalSimilarityText, x1 + LINE_WIDTH, topY)
+
+          ctx.fillStyle = `rgb(${totalVisibilityColor.join(", ")})`
+          ctx.fillText(totalVisibilityText, x1 + LINE_WIDTH, topY + FONT_SIZE)
+
+          for (let j = 0; j < similarityTexts.length; j++) {
+            if (j !== 0) {
+              ctx.fillStyle = `rgb(${segmentNameColors[j - 1].join(", ")})`
+              ctx.fillText(
+                segmentNameTexts[j - 1],
+                x1 + LINE_WIDTH,
+                topY + FONT_SIZE * 2 + j * FONT_SIZE,
+              )
+            }
+
+            const similarityColor = similarityColors[j]
+            const similarityText = similarityTexts[j]
+            ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
+            ctx.fillText(
+              similarityText,
+              x1 + LINE_WIDTH + tableWidths[0],
+              topY + FONT_SIZE * 2 + j * FONT_SIZE,
+            )
+
+            const visibilityColor = visibilityColors[j]
+            const visibilityText = visibilityTexts[j]
+            ctx.fillStyle = `rgb(${visibilityColor.join(", ")})`
+            ctx.fillText(
+              visibilityText,
+              x1 + LINE_WIDTH + tableWidths[0] + tableWidths[1],
+              topY + FONT_SIZE * 2 + j * FONT_SIZE,
+            )
+          }
+        } else {
+          ctx.font = `${FONT_SIZE}px Arial`
+          ctx.fillStyle = `rgb(${matchColor.join(", ")})`
+          ctx.fillText(totalSScore.toFixed(2), x1 + LINE_WIDTH, y1 - 5)
         }
       }
     },
@@ -428,12 +469,12 @@ export const ReIdentification = ({
   }
 
   const reset = () => {
-    clear()
+    setCamDataHandler(null)
     setStatus("default")
   }
 
   useEffect(() => {
-    setStatus(INITIAL_STATUS)
+    setStatus("default")
     logger("Loading Start")
     setLoading(true)
     const loadModel = Promise.all([
@@ -456,10 +497,10 @@ export const ReIdentification = ({
         logger("Unloaded")
         pdSession?.release()
         feSession?.release()
-        clear()
+        setCamDataHandler(null)
       })
     }
-  }, [clear, setLoading, pdModel, feModel])
+  }, [setCamDataHandler, setLoading, pdModel, feModel])
 
   return (
     <>

@@ -1,36 +1,36 @@
 import { createContext, type RefObject } from "react"
-import type {
-  CamDataHandler,
-  CamChange,
-  CamStatusType,
-  Clear,
-  SetCamDataHandler,
-  FlipChange,
-} from "./type"
+import type { CamDataHandler, CamStatusType, DeviceInfo } from "./type"
 
 export const CamContext = createContext<{
-  flipRef: RefObject<boolean>
-  camDataHandlerRef: RefObject<CamDataHandler | null>
-  setCamDataHandler: SetCamDataHandler
-  clear: Clear
+  flip: boolean
+  setFlip: (flip: boolean) => void
+  camDataHandler: CamDataHandler | null
+  setCamDataHandler: (cameraHandler: CamDataHandler | null) => void
+  showCamStatus: boolean
+  setShowCamStatus: (show: boolean) => void
+  devices: DeviceInfo[]
+  setDevices: (devices: DeviceInfo[]) => void
+  selectedDeviceId: string
+  setSelectedDeviceId: (deviceId: string) => void
   camRef: RefObject<HTMLVideoElement>
   camStatusRef: RefObject<CamStatusType>
-  flipChangeRef: RefObject<FlipChange>
-  camChangeRef: RefObject<CamChange>
 }>({
-  flipRef: { current: false },
-  camDataHandlerRef: { current: null },
+  flip: false,
+  setFlip: () => {},
+  camDataHandler: null,
   setCamDataHandler: () => {},
-  clear: () => {},
+  showCamStatus: false,
+  setShowCamStatus: () => {},
+  devices: [],
+  setDevices: () => {},
+  selectedDeviceId: "",
+  setSelectedDeviceId: () => {},
   camRef: { current: {} as HTMLVideoElement },
   camStatusRef: {
     current: {
-      show: false,
       predictCount: null,
       errorMessage: null,
       resolution: null,
     },
   },
-  flipChangeRef: { current: { prev: false, new: false } },
-  camChangeRef: { current: { prev: "", new: "" } },
 })

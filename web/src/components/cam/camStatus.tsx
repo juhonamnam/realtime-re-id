@@ -4,15 +4,13 @@ import { CamContext } from "./context"
 export type CamStatusComponent = typeof CamStatus
 
 export const CamStatus = () => {
-  const [show, setShow] = useState(false)
   const [fps, setFps] = useState<number | null>(null)
   const [resolution, setResolution] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const { camStatusRef } = useContext(CamContext)
+  const { showCamStatus, camStatusRef } = useContext(CamContext)
 
   useEffect(() => {
     const update = () => {
-      setShow(camStatusRef.current.show)
       setErrorMessage(camStatusRef.current.errorMessage)
       if (camStatusRef.current.resolution) {
         setResolution(
@@ -40,7 +38,7 @@ export const CamStatus = () => {
   return (
     <div
       className={
-        show
+        showCamStatus
           ? "text-light bg-dark position-absolute end-0 top-0 z-1 p-2"
           : "d-none"
       }

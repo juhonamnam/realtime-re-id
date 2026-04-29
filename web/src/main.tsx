@@ -1,15 +1,17 @@
-// import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { CamProvider } from "./components/cam"
-import { LoadingWrapper } from "./components/loading"
+import { LoadingProvider } from "./components/loading"
+import { ReIDConfigProvider } from "./components/reidConfig"
 import App from "./App.tsx"
 
 createRoot(document.getElementById("root")!).render(
   // <StrictMode>
-    <CamProvider>
-      <LoadingWrapper>
+  <CamProvider>
+    <ReIDConfigProvider>
+      <LoadingProvider>
         <App />
-      </LoadingWrapper>
-    </CamProvider>
+      </LoadingProvider>
+    </ReIDConfigProvider>
+  </CamProvider>,
   // </StrictMode>,
 )

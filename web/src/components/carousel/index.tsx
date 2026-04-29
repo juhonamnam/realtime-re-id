@@ -336,7 +336,7 @@ export const Carousel = ({
         </div>
       )
     })
-  }, [status, descriptions, imageUrls, slide, moveOption])
+  }, [status, descriptions, imageUrls, slide, moveOption, descriptionLines])
 
   const transformStyle = useMemo(() => {
     const width = `${100 * carouselListDisplay.length}%`

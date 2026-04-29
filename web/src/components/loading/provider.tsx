@@ -2,7 +2,7 @@ import { type PropsWithChildren, useState } from "react"
 import { Modal } from "react-bootstrap"
 import { LoadingContext } from "./context"
 
-export const LoadingWrapper = ({ children }: PropsWithChildren) => {
+export const LoadingProvider = ({ children }: PropsWithChildren) => {
   const [loading, setLoading] = useState(false)
 
   return (

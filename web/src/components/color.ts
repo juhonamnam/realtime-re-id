@@ -1,4 +1,5 @@
-import { COLOR_OF_MATCH, COLOR_OF_UNMATCH } from "./const"
+export const COLOR_OF_UNMATCH = [255, 255, 0] as const
+export const COLOR_OF_MATCH = [255, 0, 0] as const
 
 export const getSimilarityColor = (
   similarityScore: number,

@@ -1,2 +1,2 @@
-export * from "./LoadingWrapper"
+export * from "./provider"
 export * from "./useLoading"
