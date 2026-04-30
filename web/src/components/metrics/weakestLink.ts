@@ -1,6 +1,3 @@
-import type { Feature } from "../type"
-import { getEmbSimilarityScore } from "./common"
-
 const VALUE_AT_THRESHOLD = 0.7
 
 const logisticRemap = (x: number, threshold: number, exp = 2): number => {
@@ -22,32 +19,22 @@ const logisticRemap = (x: number, threshold: number, exp = 2): number => {
 }
 
 export const getWeakestLinkSimilarity = (
-  feature1: Feature,
-  feature2: Feature,
+  vScores: number[],
+  partSScores: number[],
   thresholds: number[],
-): [number, number[]] => {
-  const combinedVScores: number[] = []
-  for (let i = 0; i < feature1.vScores.length; i++) {
-    combinedVScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
-  }
-
+): number => {
   let totalSScore = 1
-  const partSScores = []
 
-  for (let i = 0; i < feature1.embVecs.length; i++) {
-    const combinedVScore = combinedVScores[i]
+  for (let i = 0; i < vScores.length; i++) {
+    const vScore = vScores[i]
+    let partSScore = partSScores[i]
     const threshold = thresholds[i]
 
-    const embVec1 = feature1.embVecs[i]
-    const embVec2 = feature2.embVecs[i]
-    let sScore = getEmbSimilarityScore(embVec1, embVec2)
-    partSScores.push(sScore)
+    partSScore = Math.max(partSScore, 0)
+    partSScore = logisticRemap(partSScore, threshold)
 
-    sScore = Math.max(sScore, 0)
-    sScore = logisticRemap(sScore, threshold)
-
-    totalSScore *= 1 - combinedVScore + combinedVScore * sScore
+    totalSScore *= 1 - vScore + vScore * partSScore
   }
 
-  return [totalSScore, partSScores]
+  return totalSScore
 }

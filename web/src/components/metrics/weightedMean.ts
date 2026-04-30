@@ -1,6 +1,3 @@
-import type { Feature } from "../type"
-import { getEmbSimilarityScore } from "./common"
-
 const logisticRemap = (x: number, threshold: number): number => {
   if (x === 0) {
     return 0
@@ -18,43 +15,30 @@ const logisticRemap = (x: number, threshold: number): number => {
 }
 
 export const getWeightedMeanSimilarity = (
-  feature1: Feature,
-  feature2: Feature,
+  vScores: number[],
+  partSScores: number[],
   thresholds: number[],
-): [number, number[]] => {
-  const combinedVScores: number[] = []
-  for (let i = 0; i < feature1.vScores.length; i++) {
-    combinedVScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
-  }
+): number => {
+  const vScoreSum = vScores.reduce((sum, score) => sum + score, 0)
 
-  const combinedVScoreSum = combinedVScores.reduce(
-    (sum, score) => sum + score,
-    0,
-  )
-
-  if (combinedVScoreSum === 0) {
-    return [0, combinedVScores.map(() => 0)] as const
+  if (vScoreSum === 0) {
+    return 0
   }
 
   let totalSScore = 0
-  const partSScores = []
 
-  for (let i = 0; i < feature1.embVecs.length; i++) {
-    const combinedVScore = combinedVScores[i]
+  for (let i = 0; i < vScores.length; i++) {
+    const vScore = vScores[i]
+    let partSScore = partSScores[i]
     const threshold = thresholds[i]
 
-    const embVec1 = feature1.embVecs[i]
-    const embVec2 = feature2.embVecs[i]
-    let sScore = getEmbSimilarityScore(embVec1, embVec2)
-    partSScores.push(sScore)
+    partSScore = Math.max(partSScore, 0)
+    partSScore = logisticRemap(partSScore, threshold)
 
-    sScore = Math.max(sScore, 0)
-    sScore = logisticRemap(sScore, threshold)
-
-    totalSScore += combinedVScore * sScore
+    totalSScore += vScore * partSScore
   }
 
-  totalSScore /= combinedVScoreSum
+  totalSScore /= vScoreSum
 
-  return [totalSScore, partSScores]
+  return totalSScore
 }

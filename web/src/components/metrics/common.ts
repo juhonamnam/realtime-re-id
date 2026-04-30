@@ -1,3 +1,5 @@
+import type { Feature } from "../type"
+
 const dot = (vec1: Float32Array, vec2: Float32Array): number => {
   let result = 0
   for (let i = 0; i < vec1.length; i++) {
@@ -27,4 +29,22 @@ export const getEmbSimilarityScore = (
     return -1
   }
   return dotProduct / denominator
+}
+
+export const prepareForSimilarityMetric = (
+  feature1: Feature,
+  feature2: Feature,
+) => {
+  const vScores = []
+  const partSScores = []
+
+  for (let i = 0; i < feature1.vScores.length; i++) {
+    vScores.push(Math.min(feature1.vScores[i], feature2.vScores[i]))
+
+    const embVec1 = feature1.embVecs[i]
+    const embVec2 = feature2.embVecs[i]
+    partSScores.push(getEmbSimilarityScore(embVec1, embVec2))
+  }
+
+  return { vScores, partSScores }
 }

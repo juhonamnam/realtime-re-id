@@ -1,7 +1,10 @@
-import { getWeakestLinkSimilarity } from "../metrics/weakestLink"
-import { getWeightedMeanSimilarity } from "../metrics/weightedMean"
-import { getWeightedGeometricMeanSimilarity } from "../metrics/weightedGeometricMean"
-import { getMinimumSimilarity } from "../metrics/minimum"
+import {
+  getWeakestLinkSimilarity,
+  getWeightedMeanSimilarity,
+  getWeightedGeometricMeanSimilarity,
+  getMinimumSimilarity,
+  buildSimilarityFunc,
+} from "../metrics"
 import type { Feature } from "../type"
 
 const baseUrl = import.meta.env.BASE_URL
@@ -80,11 +83,20 @@ export type MetricType = {
 }
 
 export const METRIC_TYPES: MetricType[] = [
-  { name: "Weakest Link" as const, function: getWeakestLinkSimilarity },
-  { name: "Weighted Mean" as const, function: getWeightedMeanSimilarity },
+  {
+    name: "Weakest Link" as const,
+    function: buildSimilarityFunc(getWeakestLinkSimilarity),
+  },
+  {
+    name: "Weighted Mean" as const,
+    function: buildSimilarityFunc(getWeightedMeanSimilarity),
+  },
   {
     name: "Weighted Geometric Mean" as const,
-    function: getWeightedGeometricMeanSimilarity,
+    function: buildSimilarityFunc(getWeightedGeometricMeanSimilarity),
   },
-  { name: "Minimum" as const, function: getMinimumSimilarity },
+  {
+    name: "Minimum" as const,
+    function: buildSimilarityFunc(getMinimumSimilarity),
+  },
 ].map((metricType, idx) => ({ ...metricType, idx }))
