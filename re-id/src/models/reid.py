@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.utils.metric import get_emb_similarity_vector
+from src.metric import get_emb_similarity_vector
 
 from torchvision.ops.misc import Conv2dNormActivation
 

@@ -1,28 +1,5 @@
 import torch
-
-def get_emb_similarity_vector(emb_vec1, emb_vec2):
-    # Cosine Similarity
-    norm1 = torch.norm(emb_vec1, p=2)
-    norm2 = torch.norm(emb_vec2, p=2)
-
-    unit_v1 = emb_vec1 / norm1
-    unit_v2 = emb_vec2 / norm2
-
-    product = unit_v1 * unit_v2
-
-    return product
-
-def get_emb_similarity_score(emb_vec1, emb_vec2):
-    # Cosine Similarity
-    norm1 = torch.norm(emb_vec1, p=2)
-    norm2 = torch.norm(emb_vec2, p=2)
-
-    unit_v1 = emb_vec1 / norm1
-    unit_v2 = emb_vec2 / norm2
-
-    score = torch.mm(torch.unsqueeze(unit_v1, 0), torch.unsqueeze(unit_v2, 0).T).squeeze()
-    
-    return score
+from .common import get_emb_similarity_score
 
 VALUE_AT_THRESHOLD = 0.7
 
@@ -32,7 +9,7 @@ def logistic_remap(x, threshold, exp=2):
                               torch.log(torch.tensor((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD)) - 
                               exp * torch.log(x / (1 - x))))
 
-def get_similarity_score(feature1, feature2,
+def get_weakest_link_similarity_score(feature1, feature2,
                          thresholds=0.5,
                          return_part_scores=False):
     ft1_v_scores, ft1_emb_vecs = feature1
