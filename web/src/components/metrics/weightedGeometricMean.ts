@@ -17,7 +17,7 @@ const logisticRemap = (x: number, threshold: number): number => {
   return logistic
 }
 
-export const getWeightedAvgSimilarity = (
+export const getWeightedGeometricMeanSimilarity = (
   feature1: Feature,
   feature2: Feature,
   thresholds: number[],
@@ -36,7 +36,7 @@ export const getWeightedAvgSimilarity = (
     return [0, combinedVScores.map(() => 0)] as const
   }
 
-  let totalSScore = 0
+  let totalLnSScore = 0
   const partSScores = []
 
   for (let i = 0; i < feature1.embVecs.length; i++) {
@@ -51,10 +51,10 @@ export const getWeightedAvgSimilarity = (
     sScore = Math.max(sScore, 0)
     sScore = logisticRemap(sScore, threshold)
 
-    totalSScore += combinedVScore * sScore
+    totalLnSScore += combinedVScore * Math.log(Math.max(sScore, 1e-6))
   }
 
-  totalSScore /= combinedVScoreSum
+  const totalSScore = Math.exp(totalLnSScore / combinedVScoreSum)
 
   return [totalSScore, partSScores]
 }

@@ -2,15 +2,18 @@ import torch.nn as nn
 
 from .common import *
 from .weakest_link import get_weakest_link_similarity_score
-from .weighted_avg import get_weighted_avg_similarity_score
+from .weighted_mean import get_weighted_mean_similarity_score
+from .weighted_geometric_mean import get_weighted_geometric_mean_similarity_score
 
 class SimilarityMetric(nn.Module):
     def __init__(self, method='weakest_link', thresholds=0.5):
         super(SimilarityMetric, self).__init__()
         if method == 'weakest_link':
             self.similarity_func = get_weakest_link_similarity_score
-        elif method == 'weighted_avg':
-            self.similarity_func = get_weighted_avg_similarity_score
+        elif method == 'weighted_mean':
+            self.similarity_func = get_weighted_mean_similarity_score
+        elif method == 'weighted_geometric_mean':
+            self.similarity_func = get_weighted_geometric_mean_similarity_score
         else:
             raise ValueError(f"Unsupported similarity metric method: {method}")
         self.thresholds = thresholds

@@ -6,7 +6,7 @@ def logistic_remap(x, threshold):
     return 1 / (1 + torch.exp(torch.log(torch.tensor(threshold / (1 - threshold))) - 
                               torch.log(x / (1 - x))))
 
-def get_weighted_avg_similarity_score(feature1, feature2,
+def get_weighted_geometric_mean_similarity_score(feature1, feature2,
                          thresholds=0.5,
                          return_part_scores=False):
     ft1_v_scores, ft1_emb_vecs = feature1
@@ -20,7 +20,7 @@ def get_weighted_avg_similarity_score(feature1, feature2,
     combined_v_scores = torch.cat((ft1_v_scores.unsqueeze(0), ft2_v_scores.unsqueeze(0)), dim=0).min(dim=0).values
     combined_v_scores_sum = combined_v_scores.sum().clamp(min=1e-6)
 
-    total_s_score = torch.tensor(0.).to(combined_v_scores.device)
+    total_ln_s_score = torch.tensor(0.).to(combined_v_scores.device)
 
     if return_part_scores:
         part_s_scores = []
@@ -42,9 +42,9 @@ def get_weighted_avg_similarity_score(feature1, feature2,
         s_score = s_score.clamp(min=0)
         s_score = logistic_remap(s_score, threshold)
 
-        total_s_score += v_score * s_score
+        total_ln_s_score += v_score * torch.log(s_score)
 
-    total_s_score /= combined_v_scores_sum
+    total_s_score = torch.exp(total_ln_s_score / combined_v_scores_sum)
 
     if return_part_scores:
         return total_s_score, part_s_scores
