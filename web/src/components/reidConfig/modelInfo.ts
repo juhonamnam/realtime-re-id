@@ -1,6 +1,7 @@
 import { getWeakestLinkSimilarity } from "../metrics/weakestLink"
 import { getWeightedMeanSimilarity } from "../metrics/weightedMean"
 import { getWeightedGeometricMeanSimilarity } from "../metrics/weightedGeometricMean"
+import { getMinimumSimilarity } from "../metrics/minimum"
 import type { Feature } from "../type"
 
 const baseUrl = import.meta.env.BASE_URL
@@ -13,7 +14,11 @@ export type PDModelInfo = {
   threshold: number
 }
 
-type MetricName = "Weakest Link" | "Weighted Mean" | "Weighted Geometric Mean"
+type MetricName =
+  | "Weakest Link"
+  | "Weighted Mean"
+  | "Weighted Geometric Mean"
+  | "Minimum"
 
 export type FEModelInfo = {
   idx: number
@@ -52,7 +57,8 @@ export const FE_MODELS: FEModelInfo[] = [
     similarityThresholds: {
       ["Weakest Link"]: 0.64,
       ["Weighted Mean"]: 0.74,
-      ["Weighted Geometric Mean"]: 0.7,
+      ["Weighted Geometric Mean"]: 0.64,
+      ["Minimum"]: 0.64,
     },
     partSimilarityThresholds: [0.5, 0.6, 0.5, 0.5, 0.5],
     visibilityThreshold: 0.7,
@@ -80,5 +86,5 @@ export const METRIC_TYPES: MetricType[] = [
     name: "Weighted Geometric Mean" as const,
     function: getWeightedGeometricMeanSimilarity,
   },
+  { name: "Minimum" as const, function: getMinimumSimilarity },
 ].map((metricType, idx) => ({ ...metricType, idx }))
-
