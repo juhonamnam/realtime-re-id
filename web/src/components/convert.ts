@@ -1,5 +1,3 @@
-import * as ort from "onnxruntime-web"
-
 // Keep ratio with padding
 export const captureVideo = async (
   video: HTMLVideoElement,
@@ -51,13 +49,16 @@ export const captureVideo = async (
     float32Data[i + pixelCount * 2] = data[offset + 2] / 255
   }
 
-  const tensor = new ort.Tensor("float32", float32Data, [1, 3, height, width])
-
-  return { tensor, canvas: capture, resizeScale }
+  return {
+    data: float32Data,
+    dims: [1, 3, height, width],
+    canvas: capture,
+    resizeScale,
+  }
 }
 
 // Keep ratio with letterbox padding
-export const cropCanvasToTensor = async (
+export const cropCanvasToBuffer = async (
   canvas: OffscreenCanvas,
   bboxes: [number, number, number, number][],
   targetSize: readonly [number, number], // [height, width]
@@ -108,9 +109,9 @@ export const cropCanvasToTensor = async (
     const { data } = ctx.getImageData(0, 0, targetWidth, targetHeight)
 
     // Debug
-    // const blob = await canvasForCrop.convertToBlob()
-    // const url = URL.createObjectURL(blob)
-    // console.log(url)
+    const blob = await canvasForCrop.convertToBlob()
+    const url = URL.createObjectURL(blob)
+    console.log(url)
 
     for (let i = 0; i < pixelCount; i++) {
       const offset = i * 4
@@ -120,12 +121,8 @@ export const cropCanvasToTensor = async (
     }
   }
 
-  const tensor = new ort.Tensor("float32", float32Data, [
-    bboxes.length,
-    3,
-    targetHeight,
-    targetWidth,
-  ])
-
-  return tensor
+  return {
+    data: float32Data,
+    dims: [bboxes.length, 3, targetHeight, targetWidth],
+  }
 }

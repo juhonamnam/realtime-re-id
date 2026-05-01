@@ -9,8 +9,7 @@ import {
 import { useCamData, Cam, CamWrapper } from "./cam"
 import { logger } from "./logger"
 import { useLoading } from "./loading"
-import * as ort from "onnxruntime-web"
-import { cropCanvasToTensor, captureVideo } from "./convert"
+import { cropCanvasToBuffer, captureVideo } from "./convert"
 import { Button, Modal } from "react-bootstrap"
 import { Carousel } from "./carousel"
 import type { Feature, Snap, Status } from "./type"
@@ -29,6 +28,8 @@ import {
   type FEModelInfo,
   METRIC_TYPES,
 } from "./reidConfig"
+
+import { reidWorker } from "./worker"
 
 const getTotalVisibilityScore = (feature: Feature) => {
   return (
@@ -60,11 +61,6 @@ export const ReIdentification = () => {
   const flipRef = useRef(false)
   const metricTypeRef = useRef(METRIC_TYPES[0])
   const comparisonDetailRef = useRef(false)
-
-  const [session, setSession] = useState<{
-    pd?: ort.InferenceSession
-    fe?: ort.InferenceSession
-  }>({})
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -132,115 +128,31 @@ export const ReIdentification = () => {
     }
   }, [camRef])
 
-  const detectPerson = useCallback(
-    async (
-      pdSession: ort.InferenceSession,
-      tensor: ort.Tensor,
-      pdModel: PDModelInfo,
-      resizeScale: number,
-    ) => {
-      const [inputName] = pdSession.inputNames
-      const [outputName] = pdSession.outputNames
-
-      const feeds = { [inputName]: tensor }
-      const pdResult = await pdSession.run(feeds)
-
-      const bboxes = pdResult[outputName]
-      const bboxesData = bboxes.data as Float32Array
-
-      const bboxList: [number, number, number, number][] = []
-
-      const stride = bboxes.dims[2]
-
-      for (let i = 0; i < bboxesData.length; i += stride) {
-        const score = bboxesData[i + 4]
-        if (score < pdModel.threshold) {
-          continue
-        }
-
-        const x1 = bboxesData[i] / resizeScale
-        const x2 = bboxesData[i + 2] / resizeScale
-        const y1 = bboxesData[i + 1] / resizeScale
-        const y2 = bboxesData[i + 3] / resizeScale
-
-        bboxList.push([x1, y1, x2, y2])
-      }
-      bboxes.dispose()
-
-      return bboxList
-    },
-    [],
-  )
-
-  const extractFeatures = useCallback(
-    async (
-      feSession: ort.InferenceSession,
-      canvas: OffscreenCanvas,
-      bboxes: [number, number, number, number][],
-      feModel: FEModelInfo,
-    ) => {
-      const [inputName] = feSession.inputNames
-      const [vScoreName, embVecName] = feSession.outputNames
-
-      const pTensor = await cropCanvasToTensor(canvas, bboxes, feModel.shape)
-
-      const feeds = { [inputName]: pTensor }
-      const feResult = await feSession.run(feeds)
-
-      pTensor.dispose()
-
-      const embVec = feResult[embVecName]
-      const embVecData = embVec.data as Float32Array
-
-      const vScore = feResult[vScoreName]
-      const vScoreData = vScore.data as Float32Array
-
-      const batch = embVec.dims[0]
-      const segments = embVec.dims[1]
-      const featureNum = embVec.dims[2]
-
-      embVec.dispose()
-      vScore.dispose()
-
-      const result: Feature[] = []
-
-      for (let i = 0; i < batch; i++) {
-        const embVecs: Float32Array[] = []
-        const vScores: Float32Array = new Float32Array(segments)
-
-        for (let j = 0; j < segments; j++) {
-          const embVec = embVecData.slice(
-            i * segments * featureNum + j * featureNum,
-            i * segments * featureNum + (j + 1) * featureNum,
-          )
-          vScores[j] = vScoreData[i * segments + j]
-          embVecs.push(embVec)
-        }
-
-        result.push({ embVecs, vScores })
-      }
-
-      return result
-    },
-    [],
-  )
-
   const takeSnapshot = async (pdModel: PDModelInfo, feModel: FEModelInfo) => {
     if (!camRef.current) return
-    if (!session.pd || !session.fe) return
-    const { tensor, canvas, resizeScale } = await captureVideo(
-      camRef.current,
-      pdModel.shape,
-    )
-    const bboxes = await detectPerson(session.pd, tensor, pdModel, resizeScale)
-    tensor.dispose()
+    const {
+      data: pdData,
+      dims: pdDims,
+      canvas,
+      resizeScale,
+    } = await captureVideo(camRef.current, pdModel.shape)
+
+    const bboxes = await reidWorker.detect({
+      input: { data: pdData, dims: pdDims, resizeScale },
+      threshold: pdModel.threshold,
+    })
+
     if (bboxes.length > 0) {
-      const features = await extractFeatures(
-        session.fe,
+      // Need to extract features for these bboxes
+      const { data: feData, dims: feDims } = await cropCanvasToBuffer(
         canvas,
         bboxes,
-        feModel,
+        feModel.shape,
       )
+      const features = await reidWorker.extractFeatures({
+        input: { data: feData, dims: feDims },
+      })
+
       setSnap({ canvas, bboxes, features })
       setStatus("select")
     }
@@ -252,38 +164,40 @@ export const ReIdentification = () => {
       pdModel: PDModelInfo,
       feModel: FEModelInfo,
     ) => {
-      if (!session.pd || !session.fe) return
-      if (!canvasRef.current) return
-      canvasRef.current.width = camData.clientWidth
-      canvasRef.current.height = camData.clientHeight
-
-      const ctx = canvasRef.current.getContext("2d")
-      if (!ctx) return
-
       if (!featureToCompareRef.current) return
 
-      const { tensor, canvas, resizeScale } = await captureVideo(
-        camData,
-        pdModel.shape,
+      const {
+        data: pdData,
+        dims: pdDims,
+        canvas,
+        resizeScale,
+      } = await captureVideo(camData, pdModel.shape)
+
+      const bboxes = await reidWorker.detect({
+        input: { data: pdData, dims: pdDims, resizeScale },
+        threshold: pdModel.threshold,
+      })
+
+      const { data: feData, dims: feDims } = await cropCanvasToBuffer(
+        canvas,
+        bboxes,
+        feModel.shape,
       )
 
-      const bboxes = await detectPerson(
-        session.pd,
-        tensor,
-        pdModel,
-        resizeScale,
-      )
-      if (!bboxes.length) return
+      const features = await reidWorker.extractFeatures({
+        input: { data: feData, dims: feDims },
+      })
 
       const xRatio = camData.clientWidth / canvas.width
       const yRatio = camData.clientHeight / canvas.height
 
-      const features = await extractFeatures(
-        session.fe,
-        canvas,
-        bboxes,
-        feModel,
-      )
+      if (!canvasRef.current) return
+
+      const ctx = canvasRef.current.getContext("2d")
+      if (!ctx) return
+
+      canvasRef.current.width = camData.clientWidth
+      canvasRef.current.height = camData.clientHeight
 
       for (let i = 0; i < bboxes.length; i++) {
         const [x1_, y1_, x2_, y2_] = bboxes[i]
@@ -452,7 +366,7 @@ export const ReIdentification = () => {
         }
       }
     },
-    [flipRef, session, detectPerson, extractFeatures],
+    [flipRef],
   )
 
   const onSelect = useCallback(
@@ -477,28 +391,20 @@ export const ReIdentification = () => {
     setStatus("default")
     logger("Loading Start")
     setLoading(true)
-    const loadModel = Promise.all([
-      ort.InferenceSession.create(pdModel.path),
-      ort.InferenceSession.create(feModel.path),
-    ])
-      .then(([pdSession, feSession]) => {
-        setSession({ pd: pdSession, fe: feSession })
+
+    reidWorker
+      .loadModels(pdModel.path, feModel.path)
+      .then(() => {
         logger("Loading Finished")
         setLoading(false)
-        return [pdSession, feSession]
       })
       .catch((reason) => {
         alert(reason)
         setLoading(false)
-        return []
       })
+
     return () => {
-      loadModel.then(([pdSession, feSession]) => {
-        logger("Unloaded")
-        pdSession?.release()
-        feSession?.release()
-        setCamDataHandler(null)
-      })
+      setCamDataHandler(null)
     }
   }, [setCamDataHandler, setLoading, pdModel, feModel])
 
