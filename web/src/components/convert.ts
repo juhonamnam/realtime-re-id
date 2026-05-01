@@ -109,9 +109,9 @@ export const cropCanvasToBuffer = async (
     const { data } = ctx.getImageData(0, 0, targetWidth, targetHeight)
 
     // Debug
-    const blob = await canvasForCrop.convertToBlob()
-    const url = URL.createObjectURL(blob)
-    console.log(url)
+    // const blob = await canvasForCrop.convertToBlob()
+    // const url = URL.createObjectURL(blob)
+    // console.log(url)
 
     for (let i = 0; i < pixelCount; i++) {
       const offset = i * 4
