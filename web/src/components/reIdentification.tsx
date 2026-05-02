@@ -26,6 +26,12 @@ import { useReIDConfig, type PDModelInfo, type FEModelInfo } from "./reidConfig"
 
 import { reidWorker } from "./worker"
 
+/**
+ * Calculates the average visibility score across all body parts.
+ *
+ * @param feature - The person feature object containing visibility scores for each part.
+ * @returns The average visibility score as a number.
+ */
 const getTotalVisibilityScore = (feature: Feature) => {
   return (
     feature.vScores.reduce((acc, score) => acc + score, 0) /
@@ -33,6 +39,15 @@ const getTotalVisibilityScore = (feature: Feature) => {
   )
 }
 
+/**
+ * Calculates the comparability between two features based on their visibility scores.
+ * This determines if two features are similar enough in terms of what body parts are visible
+ * to be reliably compared.
+ *
+ * @param featureToCompare - The reference feature to compare against.
+ * @param feature - The current feature being evaluated.
+ * @returns A comparability score between 0 and 1.
+ */
 const getComparability = (featureToCompare: Feature, feature: Feature) => {
   return (
     feature.vScores.reduce((acc, score, i) => {
@@ -48,6 +63,13 @@ const getComparability = (featureToCompare: Feature, feature: Feature) => {
   )
 }
 
+/**
+ * The main component for person re-identification.
+ * It handles camera feed processing, person detection, feature extraction,
+ * and matching against a selected person snapshot.
+ *
+ * @returns A React functional component.
+ */
 export const ReIdentification = () => {
   const { setLoading } = useLoading()
   const { setCamDataHandler, flip, camRef } = useCamData()
@@ -460,6 +482,19 @@ export const ReIdentification = () => {
   )
 }
 
+/**
+ * A modal component that allows the user to select a person from a captured snapshot.
+ * Displays the scene with detected bboxes and a carousel of cropped person images
+ * with their respective visibility scores.
+ *
+ * @param props - The component props.
+ * @param props.show - Whether the modal is visible.
+ * @param props.snap - The snapshot data containing the scene canvas, bboxes, and features.
+ * @param props.onSelect - Callback function triggered when a person is selected.
+ * @param props.onClose - Callback function triggered when the modal is closed.
+ * @param props.feModel - Information about the feature extraction model being used.
+ * @returns A React functional component.
+ */
 const PersonSelectModal = ({
   show,
   snap,

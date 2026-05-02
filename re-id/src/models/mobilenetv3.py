@@ -7,9 +7,15 @@ from torchvision.ops.misc import Conv2dNormActivation, SqueezeExcitation
 
 
 def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
-    """
-    It ensures that all layers have a channel number that is divisible by 8
-    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """Ensures that all layers have a channel number that is divisible by 8.
+
+    Args:
+        v (float): Original channel value.
+        divisor (int): The divisor to make the value divisible by.
+        min_value (int, optional): Minimum value for the result. Defaults to None.
+
+    Returns:
+        int: The adjusted channel value.
     """
     if min_value is None:
         min_value = divisor
@@ -21,6 +27,14 @@ def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> 
 
 
 class InvertedResidual(nn.Module):
+    """Inverted Residual block as described in MobileNetV3.
+
+    Attributes:
+        use_res_connect (bool): Whether to use a residual connection.
+        block (nn.Sequential): The sequence of layers in the block.
+        out_channels (int): Number of output channels.
+        _is_cn (bool): Whether this block is a channel-increasing block.
+    """
     # Implemented as described at section 5 of MobileNetV3 paper
     def __init__(
         self,
@@ -35,6 +49,20 @@ class InvertedResidual(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]],
         se_layer = partial(SqueezeExcitation, scale_activation=nn.Hardsigmoid),
     ):
+        """Initializes the InvertedResidual block.
+
+        Args:
+            input_channels (int): Number of input channels.
+            kernel (int): Kernel size for depthwise convolution.
+            expanded_channels (int): Number of channels after expansion.
+            out_channels (int): Number of output channels.
+            use_se (bool): Whether to use Squeeze-and-Excitation.
+            use_hs (bool): Whether to use Hard-Swish activation.
+            stride (int): Stride for the depthwise convolution.
+            dilation (int): Dilation for the depthwise convolution.
+            norm_layer (Callable, optional): Normalization layer.
+            se_layer (Callable, optional): Squeeze-and-Excitation layer.
+        """
         super().__init__()
         if not (1 <= stride <= 2):
             raise ValueError("illegal stride value")
@@ -86,6 +114,14 @@ class InvertedResidual(nn.Module):
         self._is_cn = stride > 1
 
     def forward(self, input):
+        """Forward pass of the InvertedResidual block.
+
+        Args:
+            input (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         result = self.block(input)
         if self.use_res_connect:
             result += input
@@ -94,7 +130,27 @@ class InvertedResidual(nn.Module):
 
 # https://github.com/pytorch/vision/blob/main/torchvision/models/mobilenetv3.py
 class Features(nn.Sequential):
+    """MobileNetV3 Feature extractor.
+
+    Attributes:
+        model_name (str): Name of the model ('mobilenetv3_small' or 'mobilenetv3_large').
+        use_fpn (bool): Whether to prepare for FPN output.
+        irb_configs (list[dict]): Configuration for each Inverted Residual block.
+        last_ch_out (int): Number of channels in the final feature map.
+        fpn_factors (list): Factors for FPN construction.
+        downsample_ratio (int): Cumulative downsampling ratio.
+    """
     def __init__(self, variant="small", pretrained=False, use_fpn=False):
+        """Initializes the Features sequence.
+
+        Args:
+            variant (str, optional): Model variant ('small' or 'large'). Defaults to "small".
+            pretrained (bool, optional): Whether to load pretrained weights. Defaults to False.
+            use_fpn (bool, optional): Whether to output multiple feature maps for FPN. Defaults to False.
+
+        Raises:
+            Exception: If variant is invalid.
+        """
         super().__init__()
         self.model_name = f"mobilenetv3_{variant}"
         self.use_fpn = use_fpn
@@ -203,6 +259,14 @@ class Features(nn.Sequential):
                 print(f"Failed to load pretrained weight")
 
     def forward(self, x):
+        """Forward pass of the Features sequence.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor or list[torch.Tensor]: Final feature map, or list of feature maps if use_fpn is True.
+        """
         if self.use_fpn:
             fpn_outs = []
             for i, module in enumerate(self):
@@ -218,7 +282,26 @@ class Features(nn.Sequential):
 
 
 class FPN(nn.Module):
+    """Feature Pyramid Network (FPN) implementation.
+
+    Attributes:
+        local_feat_layers (int): Number of lower layers to use for local features.
+        out_ch (int): Number of channels in the output feature maps.
+        local_conv1x1 (nn.ModuleList): 1x1 convolutions for local feature branches.
+        local_conv3x3 (nn.ModuleList): 3x3 convolutions for local feature fusion.
+        local_upsamples (list): Upsampling layers for local feature branches.
+        fused_conv1x1 (nn.ModuleList): 1x1 convolutions for all feature branches.
+        fused_conv3x3 (nn.ModuleList): 3x3 convolutions for global feature fusion.
+        fused_upsamples (list): Upsampling layers for global feature branches.
+    """
     def __init__(self, fpn_factors, out_ch=None, local_feat_layers=2):
+        """Initializes the FPN module.
+
+        Args:
+            fpn_factors (list): List of (channels, downsample_factor) for each input feature map.
+            out_ch (int, optional): Number of output channels. Defaults to the minimum input channels.
+            local_feat_layers (int, optional): Number of layers to use for local features. Defaults to 2.
+        """
         super().__init__()
         self.local_feat_layers = local_feat_layers
 
@@ -276,6 +359,16 @@ class FPN(nn.Module):
             self.fused_upsamples.append(nn.Upsample(scale_factor=scale_factor, mode="nearest"))
 
     def forward(self, fpn_input):
+        """Forward pass of the FPN.
+
+        Args:
+            fpn_input (list[torch.Tensor]): List of feature maps from the backbone.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: (fused_feat, local_feat)
+                fused_feat: Feature map fused from all input levels.
+                local_feat: Feature map fused from lower input levels.
+        """
         # Local Feature
 
         local_reduced = []
@@ -315,7 +408,24 @@ class FPN(nn.Module):
         return fused_feat, local_feat
 
 class MobilenetV3(nn.Module):
+    """MobileNetV3 model with optional FPN.
+
+    Attributes:
+        features (Features): Feature extraction sequence.
+        use_fpn (bool): Whether to use FPN.
+        downsample_ratio (int): Cumulative downsampling ratio.
+        fpn (FPN, optional): Feature Pyramid Network module.
+        out_ch (int): Number of channels in the final output feature map.
+    """
     def __init__(self, variant, pretrained=False, use_fpn=False, fpn_out_ch=None):
+        """Initializes the MobilenetV3 model.
+
+        Args:
+            variant (str): Model variant ('small' or 'large').
+            pretrained (bool, optional): Whether to load pretrained weights. Defaults to False.
+            use_fpn (bool, optional): Whether to use FPN. Defaults to False.
+            fpn_out_ch (int, optional): Number of FPN output channels. Defaults to None.
+        """
         super().__init__()
         self.features = Features(variant=variant, pretrained=pretrained, use_fpn=use_fpn)
         self.use_fpn = use_fpn
@@ -327,6 +437,14 @@ class MobilenetV3(nn.Module):
             self.out_ch = self.features.last_ch_out
 
     def forward(self, x):
+        """Forward pass of the MobilenetV3 model.
+
+        Args:
+            x (torch.Tensor): Input image tensor.
+
+        Returns:
+            torch.Tensor or tuple[torch.Tensor, torch.Tensor]: Output feature map(s).
+        """
         x = self.features(x)
         if self.use_fpn:
             x = self.fpn(x)

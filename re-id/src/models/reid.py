@@ -12,15 +12,58 @@ from src.utils.file_path import get_weight_file_path, get_pretrained_file_path, 
 
 # ImageNet Normalization
 class Normalize(nn.Module):
+    """Normalizes input tensors using ImageNet mean and standard deviation.
+
+    Attributes:
+        mean (torch.Tensor): ImageNet mean values for RGB channels.
+        std (torch.Tensor): ImageNet standard deviation values for RGB channels.
+    """
     def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+        """Initializes the Normalize module.
+
+        Args:
+            mean (list[float], optional): Mean values for normalization. Defaults to [0.485, 0.456, 0.406].
+            std (list[float], optional): Standard deviation values for normalization. Defaults to [0.229, 0.224, 0.225].
+        """
         super().__init__()
         self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1))
 
     def forward(self, x):
+        """Normalizes the input tensor.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape (Batch, 3, H, W).
+
+        Returns:
+            torch.Tensor: Normalized image tensor.
+        """
         return (x - self.mean) / self.std
 
 class ReIDModel(nn.Module):
+    """Main Person Re-Identification model.
+
+    This model uses a MobileNetV3 backbone with a segmentation-based attention mechanism
+    to extract discriminative embeddings for person re-identification.
+
+    Attributes:
+        model_variant (str): Variant of the backbone model ('m3small' or 'm3large').
+        seg_variant (str): Variant for segmentation logic.
+        emb_len (int): Length of the output embedding vector.
+        input_resolution (tuple[int, int]): Expected input resolution (Height, Width).
+        segment_num (int): Number of segmentation classes.
+        attention_groups (list): List of attention group configurations.
+        attention_num (int): Number of attention groups.
+        seg_to_att_indices (list[int]): Indices mapping segmentation results to attention.
+        model_name (str): Unique name identifying the model configuration.
+        export_file_path (str): Path to save the PyTorch model file.
+        onnx_export_file_path (str): Path to save the exported ONNX model.
+        normalize (Normalize): Normalization module.
+        backbone (MobilenetV3): Backbone feature extractor.
+        gradcam_layer (str): Target layer for GradCAM visualization.
+        segmentation (nn.Sequential): Segmentation head.
+        emb_vec (nn.ModuleList): Embedding extraction heads for each attention group.
+    """
     def __init__(self,
                  model_variant,
                  seg_variant,
@@ -28,6 +71,19 @@ class ReIDModel(nn.Module):
                  input_resolution,
                  pretrained=False,
                  backbone_pretrained=False):
+        """Initializes the ReIDModel.
+
+        Args:
+            model_variant (str): Backbone variant ('m3small' or 'm3large').
+            seg_variant (str): Segmentation configuration variant.
+            emb_len (int): Dimension of the embedding vectors.
+            input_resolution (tuple[int, int]): Input (Height, Width).
+            pretrained (bool, optional): Whether to load full model weights. Defaults to False.
+            backbone_pretrained (bool, optional): Whether to load backbone-only weights. Defaults to False.
+
+        Raises:
+            Exception: If model_variant is not supported.
+        """
         super().__init__()
 
         if pretrained:
@@ -88,6 +144,19 @@ class ReIDModel(nn.Module):
 
 
     def _forward(self, x: torch.Tensor):
+        """Internal forward pass shared by different model versions.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape (Batch, 3, H, W).
+
+        Returns:
+            tuple: (local_feat, seg, att, v_scores, emb_vecs)
+                local_feat (torch.Tensor): High-level feature maps from backbone.
+                seg (torch.Tensor): Segmentation maps.
+                att (torch.Tensor): Refined attention masks.
+                v_scores (torch.Tensor): Visibility scores for each attention group.
+                emb_vecs (torch.Tensor): Extracted embedding vectors.
+        """
         x = self.normalize(x)
         fused_feat, local_feat = self.backbone(x)                                # batch, out_ch, height, width
         seg = self.segmentation(fused_feat)                                      # batch, segmentation_num, height, width
@@ -115,22 +184,68 @@ class ReIDModel(nn.Module):
         return local_feat, seg, att, v_scores, emb_vecs
 
     def forward(self, x: torch.Tensor):
+        """Forward pass for the main Re-ID model.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape (Batch, 3, H, W).
+
+        Returns:
+            tuple: ((seg, att), (v_scores, emb_vecs))
+                seg (torch.Tensor): Segmentation maps.
+                att (torch.Tensor): Refined attention masks.
+                v_scores (torch.Tensor): Visibility scores.
+                emb_vecs (torch.Tensor): Embedding vectors.
+        """
         _, seg, att, v_scores, emb_vecs = self._forward(x)
         return (seg, att), (v_scores, emb_vecs)
 
     def export(self):
+        """Creates an instance of the model optimized for export.
+
+        Returns:
+            ReIDExportModel: Model wrapper for ONNX export.
+        """
         export_model = ReIDExportModel(self)
         return export_model
 
     def get_train_model(self, class_nums: list[int]):
+        """Creates an instance of the model for training.
+
+        Args:
+            class_nums (list[int]): Number of classes for the classification head.
+
+        Returns:
+            ReIDTrainModel: Model wrapper for training.
+        """
         return ReIDTrainModel(self, class_nums)
 
     def get_gradcam_model(self):
+        """Creates an instance of the model for GradCAM visualization.
+
+        Returns:
+            ReIDGradCAM: Model wrapper with GradCAM hooks.
+        """
         return ReIDGradCAM(self)
 
 
 class ReIDTrainModel(nn.Module):
+    """ReIDModel wrapper for training.
+
+    Includes additional heads for classification and utilities for staged training.
+
+    Attributes:
+        reid_model (ReIDModel): The base Re-ID model.
+        global_features (Conv2dNormActivation): Module to extract global features.
+        logit (nn.Linear): Classification head.
+        weight_file_path (str): Template path for saving training weights.
+    """
     def __init__(self, reid_model: ReIDModel, class_num: int):
+        """Initializes the ReIDTrainModel.
+
+        Args:
+            reid_model (ReIDModel): Base ReID model instance.
+            class_num (int): Number of identities/classes for classification.
+        """
         super().__init__()
         self.reid_model = reid_model
 
@@ -147,6 +262,7 @@ class ReIDTrainModel(nn.Module):
         self.weight_file_path = get_weight_file_path(f"{self.reid_model.model_name}_{class_num}cls_epoch_{{}}.pt")
 
     def train_backbone(self):
+        """Enables gradients for the backbone and segmentation head."""
         for p in self.reid_model.backbone.parameters():
             p.requires_grad = True
 
@@ -154,6 +270,7 @@ class ReIDTrainModel(nn.Module):
             p.requires_grad = True
 
     def train_segmentation(self):
+        """Enables gradients only for the segmentation head, freezes backbone."""
         for p in self.reid_model.backbone.parameters():
             p.requires_grad = False
 
@@ -161,6 +278,7 @@ class ReIDTrainModel(nn.Module):
             p.requires_grad = True
 
     def train_re_id(self):
+        """Freezes both backbone and segmentation head for Re-ID head training."""
         for p in self.reid_model.backbone.parameters():
             p.requires_grad = False
 
@@ -168,6 +286,18 @@ class ReIDTrainModel(nn.Module):
             p.requires_grad = False
 
     def forward(self, x):
+        """Forward pass for training.
+
+        Args:
+            x (torch.Tensor): Input image tensor.
+
+        Returns:
+            tuple: (seg, v_scores, emb_vecs, class_logits)
+                seg (torch.Tensor): Segmentation maps.
+                v_scores (torch.Tensor): Visibility scores.
+                emb_vecs (torch.Tensor): Embedding vectors.
+                class_logits (torch.Tensor): Predicted classification logits.
+        """
         local_feat, seg, att, v_scores, emb_vecs = self.reid_model._forward(x)
 
         global_feat = self.global_features(local_feat)
@@ -194,7 +324,16 @@ class ReIDTrainModel(nn.Module):
 
 
 class ReIDExportModel(ReIDModel):
+    """Simplified version of ReIDModel for ONNX export.
+
+    Only outputs the necessary components (v_scores and emb_vecs).
+    """
     def __init__(self, reid_model: ReIDModel):
+        """Initializes the export model.
+
+        Args:
+            reid_model (ReIDModel): Base model to copy weights from.
+        """
         super().__init__(reid_model.model_variant,
                          reid_model.seg_variant,
                          reid_model.emb_len,
@@ -203,12 +342,32 @@ class ReIDExportModel(ReIDModel):
         self.eval()
 
     def forward(self, x):
+        """Forward pass for exported model.
+
+        Args:
+            x (torch.Tensor): Input image tensor.
+
+        Returns:
+            tuple: (v_scores, emb_vecs)
+        """
         _, _, _, v_scores, emb_vecs = super()._forward(x)
         return v_scores, emb_vecs
 
 
 class ReIDGradCAM(ReIDModel):
+    """ReIDModel with GradCAM hooks for feature visualization.
+
+    Attributes:
+        hook_registered (bool): Whether forward/backward hooks are registered.
+        forward_result (torch.Tensor): Cached output from the target layer.
+        backward_result (torch.Tensor): Cached gradient from the target layer.
+    """
     def __init__(self, reid_model: ReIDModel):
+        """Initializes the GradCAM model.
+
+        Args:
+            reid_model (ReIDModel): Base model instance.
+        """
         super().__init__(reid_model.model_variant,
                          reid_model.seg_variant,
                          reid_model.emb_len,
@@ -221,6 +380,7 @@ class ReIDGradCAM(ReIDModel):
             p.requires_grad = True
 
     def register_hooks(self):
+        """Registers forward and backward hooks on the target GradCAM layer."""
 
         def iterate_module_to_register_hook(module, name=None):
             if name == self.gradcam_layer:
@@ -240,6 +400,17 @@ class ReIDGradCAM(ReIDModel):
             raise Exception("Layer Path {} Not Found".format(self.gradcam_layer))
 
     def forward(self, input1, input2, output_shape=(224, 224)):
+        """Calculates GradCAM activation maps for a pair of images.
+
+        Args:
+            input1 (torch.Tensor): First image tensor.
+            input2 (torch.Tensor): Second image tensor.
+            output_shape (tuple, optional): Resolution of output heatmaps. Defaults to (224, 224).
+
+        Returns:
+            tuple: (att, v_scores, emb_vecs, activation_maps)
+                activation_maps (list[torch.Tensor]): Heatmaps for each attention group.
+        """
         self.eval()
         inputs = torch.cat((input1.unsqueeze(0), input2.unsqueeze(0)), 0)
 
@@ -278,8 +449,20 @@ class ReIDGradCAM(ReIDModel):
         return att, v_scores, emb_vecs, activation_maps
 
     def forward_hook(self, _, input_, output):
+        """Hook to capture forward activations.
+
+        Args:
+            input_ (torch.Tensor): Input to the layer.
+            output (torch.Tensor): Output from the layer.
+        """
         self.forward_result = output
 
     def backward_hook(self, _, grad_input, grad_output):
+        """Hook to capture backward gradients.
+
+        Args:
+            grad_input (torch.Tensor): Gradients with respect to input.
+            grad_output (torch.Tensor): Gradients with respect to output.
+        """
         self.backward_result = grad_output[0]
 

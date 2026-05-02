@@ -4,7 +4,25 @@ from torch import nn
 
 
 class RandomErasing(nn.Module):
+    """Randomly erases a rectangular region in an image tensor.
+
+    Attributes:
+        p (float): Probability of applying erasing.
+        scale (tuple): Range of proportion of erased area.
+        ratio (tuple): Range of aspect ratio of erased area.
+        value (float or list, optional): Value to fill the erased area.
+        generator (torch.Generator, optional): Random number generator.
+    """
     def __init__(self, p=0.3, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=None, generator=None):
+        """Initializes RandomErasing.
+
+        Args:
+            p (float, optional): Probability. Defaults to 0.3.
+            scale (tuple, optional): Scale range. Defaults to (0.02, 0.33).
+            ratio (tuple, optional): Aspect ratio range. Defaults to (0.3, 3.3).
+            value (float or list, optional): Erasing value. Defaults to None (random).
+            generator (torch.Generator, optional): Random generator. Defaults to None.
+        """
         super().__init__()
         self.p = p
         self.scale = scale
@@ -13,6 +31,14 @@ class RandomErasing(nn.Module):
         self.generator = generator
 
     def forward(self, img):
+        """Applies random erasing to an image tensor.
+
+        Args:
+            img (torch.Tensor): Input image tensor of shape (C, H, W).
+
+        Returns:
+            torch.Tensor: Image tensor with random erasing applied.
+        """
         if self.generator:
             p = torch.rand(1, generator=self.generator, device=self.generator.device)
         else:

@@ -6,6 +6,11 @@ export type PredictResult = {
   error?: string
 }
 
+/**
+ * A wrapper class for managing the Re-ID Web Worker.
+ * It provides a promise-based API for model loading, person detection,
+ * and feature extraction.
+ */
 class ReidWorker {
   private worker: Worker
   private responseMap: Map<string, (data: any) => void> = new Map()
@@ -36,11 +41,28 @@ class ReidWorker {
     })
   }
 
+  /**
+   * Loads the person detection and feature extraction models into the worker.
+   *
+   * @param pdModelPath - The path to the person detection ONNX model.
+   * @param feModelPath - The path to the feature extraction ONNX model.
+   * @returns A promise that resolves when both models are loaded.
+   * @throws Error if model loading fails.
+   */
   async loadModels(pdModelPath: string, feModelPath: string) {
     const result = await this.call("load", { pdModelPath, feModelPath })
     if (!result.success) throw new Error(result.error)
   }
 
+  /**
+   * Performs person detection on the input image data.
+   *
+   * @param params - The detection parameters.
+   * @param params.input - The input image data, its dimensions, and resize scale.
+   * @param params.threshold - The confidence threshold for detections.
+   * @returns A promise that resolves to an array of bounding boxes [x1, y1, x2, y2].
+   * @throws Error if detection fails.
+   */
   async detect(params: {
     input: { data: Float32Array; dims: number[]; resizeScale: number }
     threshold: number
@@ -51,6 +73,14 @@ class ReidWorker {
     return result.bboxes
   }
 
+  /**
+   * Extracts Re-ID features from cropped person images.
+   *
+   * @param params - The extraction parameters.
+   * @param params.input - The batch of cropped person images and its dimensions.
+   * @returns A promise that resolves to an array of Feature objects.
+   * @throws Error if feature extraction fails.
+   */
   async extractFeatures(params: {
     input: { data: Float32Array; dims: number[] }
   }): Promise<Feature[]> {
@@ -61,6 +91,9 @@ class ReidWorker {
     return result.features
   }
 
+  /**
+   * Terminates the underlying Web Worker.
+   */
   terminate() {
     this.worker.terminate()
   }

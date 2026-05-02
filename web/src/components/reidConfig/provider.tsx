@@ -10,6 +10,15 @@ import {
   type PDModelInfo,
 } from "./modelInfo"
 
+/**
+ * Provider component for the Re-ID configuration context.
+ * It manages the state for person detection models, feature extraction models,
+ * similarity metrics, and visualization settings.
+ *
+ * @param props - The component props.
+ * @param props.children - The child components that will have access to the context.
+ * @returns A React functional component.
+ */
 export const ReIDConfigProvider = ({ children }: PropsWithChildren) => {
   const initialPdModel = useMemo(() => {
     const pdModelName = reIdConfigLocalStorage.getPDModel()

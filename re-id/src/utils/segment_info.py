@@ -107,14 +107,27 @@ def get_segment_groups(variant):
     raise ValueError(f"Unknown variant: {variant}")
 
 def get_attention_groups(variant):
-    """Return only foreground groups, annotated with their segmentation index.
+    """Returns foreground groups only, annotated with their segmentation index.
 
     The re-identification model uses these entries to build one attention head
     per non-background segmentation channel while keeping the original channel
     index for mask selection.
+
+    Args:
+        variant (str): Variant name.
+
+    Returns:
+        list[dict]: List of attention group configurations.
     """
     return [{**seg, "seg_idx": idx} for idx, seg in enumerate(get_segment_groups(variant)) if not seg["is_background"]]
 
 def get_default_thresholds(variant):
-    """Return the default thresholds for each non-background segment group."""
+    """Returns the default thresholds for each non-background segment group.
+
+    Args:
+        variant (str): Variant name.
+
+    Returns:
+        list[float]: List of default thresholds.
+    """
     return [seg["default_threshold"] for seg in get_segment_groups(variant) if not seg["is_background"]]

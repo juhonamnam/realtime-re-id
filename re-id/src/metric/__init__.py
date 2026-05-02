@@ -10,7 +10,7 @@ SIMILARITY_METRIC_REGISTRY = {
     'weakest_link': {"func": get_weakest_link_similarity_score,
                      "default_threshold": 0.64},
     'weighted_mean': {"func": get_weighted_mean_similarity_score,
-                      "default_threshold": 0.74},
+                      "default_threshold": 0.66},
     'weighted_geometric_mean': {"func": get_weighted_geometric_mean_similarity_score,
                                 "default_threshold": 0.64},
     'minimum': {"func": get_minimum_similarity_score,

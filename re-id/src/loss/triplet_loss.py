@@ -2,17 +2,35 @@ import torch
 import torch.nn as nn
 
 class TripletLoss(nn.Module):
+    """Calculates Triplet Loss with hardest positive and hardest negative mining.
+
+    This implementation is designed to handle multiple embedding vectors per item,
+    weighting their contributions based on visibility scores.
+
+    Attributes:
+        margin (float): The margin between positive and negative distances.
+        ranking_loss (nn.MarginRankingLoss): Underlying ranking loss module.
+    """
     def __init__(self, margin=0.6):
+        """Initializes TripletLoss.
+
+        Args:
+            margin (float, optional): Margin for triplet loss. Defaults to 0.6.
+        """
         super(TripletLoss, self).__init__()
         self.margin = margin
         self.ranking_loss = nn.MarginRankingLoss(margin=margin)
 
     def forward(self, weights, vectors, targets):
-        """
+        """Calculates the triplet loss.
+
         Args:
-            vectors: batch x vector_num x vector_len
-            weights: batch x vector_num
-            targets: batch
+            weights (torch.Tensor): Visibility weights for each embedding of shape (Batch, VectorNum).
+            vectors (torch.Tensor): Embedding vectors of shape (Batch, VectorNum, VectorLen).
+            targets (torch.Tensor): Identity labels for the batch of shape (Batch).
+
+        Returns:
+            torch.Tensor: Scalar loss value.
         """
         weights = weights.detach()
         batch, vector_num, _ = vectors.shape

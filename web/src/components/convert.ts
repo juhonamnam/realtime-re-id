@@ -1,4 +1,11 @@
-// Keep ratio with padding
+/**
+ * Captures the current frame from a video element and converts it into a Float32Array
+ * suitable for ONNX model input. It maintains the aspect ratio by applying letterbox padding.
+ *
+ * @param video - The source HTMLVideoElement to capture from.
+ * @param targetSize - The target dimensions [height, width] for the model input.
+ * @returns An object containing the processed data, dimensions, the capture canvas, and the resize scale used.
+ */
 export const captureVideo = async (
   video: HTMLVideoElement,
   targetSize: readonly [number, number], // [height, width]
@@ -57,7 +64,16 @@ export const captureVideo = async (
   }
 }
 
-// Keep ratio with letterbox padding
+/**
+ * Crops specific regions (bounding boxes) from a canvas and converts them into a
+ * single Float32Array buffer for batch processing by an ONNX model.
+ * It maintains the aspect ratio of each crop by applying letterbox padding.
+ *
+ * @param canvas - The source OffscreenCanvas to crop from.
+ * @param bboxes - An array of bounding boxes, each defined as [x1, y1, x2, y2].
+ * @param targetSize - The target dimensions [height, width] for each cropped image.
+ * @returns An object containing the batch-processed data and its dimensions.
+ */
 export const cropCanvasToBuffer = async (
   canvas: OffscreenCanvas,
   bboxes: [number, number, number, number][],

@@ -1,3 +1,8 @@
+/**
+ * @file reid.worker.ts
+ * @description Web Worker for running ONNX models in the background.
+ * It handles model loading, person detection (PD), and feature extraction (FE).
+ */
 import * as ort from "onnxruntime-web"
 
 let pdSession: ort.InferenceSession | null = null

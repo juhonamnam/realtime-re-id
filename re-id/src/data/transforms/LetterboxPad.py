@@ -5,17 +5,22 @@ import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 
 class LetterboxPad(nn.Module):
-    """
-    PyTorch transform module that resizes an image to fit target resolution
-    while maintaining aspect ratio, then pads to exact target size.
+    """Resizes an image to fit target resolution while maintaining aspect ratio, then pads to exact target size.
+
+    Attributes:
+        target_height (int): Target height.
+        target_width (int): Target width.
+        pad_value (float): Value used for padding.
+        interpolation (transforms.InterpolationMode): Interpolation method.
     """
     
     def __init__(self, target_size, pad_value=0, interpolation=transforms.InterpolationMode.NEAREST):
-        """
+        """Initializes LetterboxPad.
+
         Args:
-            target_size (tuple): Target (height, width) resolution
-            pad_value (float): Value to use for padding (default: 0)
-            interpolation (transforms.InterpolationMode): Interpolation method for resizing (default: NEAREST)
+            target_size (tuple[int, int]): Target (height, width) resolution.
+            pad_value (float, optional): Value to use for padding. Defaults to 0.
+            interpolation (transforms.InterpolationMode, optional): Interpolation method. Defaults to NEAREST.
         """
         super(LetterboxPad, self).__init__()
         self.target_height, self.target_width = target_size
@@ -23,12 +28,16 @@ class LetterboxPad(nn.Module):
         self.interpolation = interpolation
 
     def forward(self, image):
-        """
+        """Applies the letterbox padding transform to an image tensor.
+
         Args:
-            image (torch.Tensor): Input image tensor of shape (C, H, W)
+            image (torch.Tensor): Input image tensor of shape (C, H, W).
         
         Returns:
-            torch.Tensor: Transformed image of shape (C, target_height, target_width)
+            torch.Tensor: Transformed image of shape (C, target_height, target_width).
+
+        Raises:
+            ValueError: If input tensor is not 3D.
         """
         if image.dim() != 3:
             raise ValueError(f"Expected 3D tensor (C, H, W), got {image.dim()}D tensor")
