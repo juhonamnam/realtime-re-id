@@ -28,7 +28,7 @@ export type FEModelInfo = {
   name: string
   path: string
   shape: readonly [number, number]
-  similarityThresholds: { [key in MetricName]: number }
+  defaultSimilarityThresholds: { [key in MetricName]: number }
   partSimilarityThresholds: number[]
   segmentNames: string[]
   visibilityThreshold: number
@@ -57,9 +57,9 @@ export const FE_MODELS: FEModelInfo[] = [
     name: "ReID M3Small 5a24e 64x192",
     path: `${baseUrl}/model/reid_m3small_5a24e_64x192.onnx`,
     shape: [192, 64] as const,
-    similarityThresholds: {
+    defaultSimilarityThresholds: {
       ["Weakest Link"]: 0.64,
-      ["Weighted Mean"]: 0.74,
+      ["Weighted Mean"]: 0.66,
       ["Weighted Geometric Mean"]: 0.64,
       ["Minimum"]: 0.64,
     },

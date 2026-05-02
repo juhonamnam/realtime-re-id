@@ -28,7 +28,7 @@ export const CamSettings = () => {
       <div className="d-flex align-items-center">
         Select Camera
         <button
-          className="btn bi bi-arrow-clockwise"
+          className="btn btn-sm bi bi-arrow-clockwise"
           onClick={() => refreshDevices()}
         ></button>
       </div>

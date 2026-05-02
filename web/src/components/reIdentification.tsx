@@ -22,12 +22,7 @@ import {
   mergeColors,
 } from "./color"
 
-import {
-  useReIDConfig,
-  type PDModelInfo,
-  type FEModelInfo,
-  METRIC_TYPES,
-} from "./reidConfig"
+import { useReIDConfig, type PDModelInfo, type FEModelInfo } from "./reidConfig"
 
 import { reidWorker } from "./worker"
 
@@ -56,11 +51,18 @@ const getComparability = (featureToCompare: Feature, feature: Feature) => {
 export const ReIdentification = () => {
   const { setLoading } = useLoading()
   const { setCamDataHandler, flip, camRef } = useCamData()
-  const { pdModel, feModel, metricType, showComparsionDetail } = useReIDConfig()
+  const {
+    pdModel,
+    feModel,
+    metricType,
+    similarityThreshold,
+    showComparsionDetail,
+  } = useReIDConfig()
 
-  const flipRef = useRef(false)
-  const metricTypeRef = useRef(METRIC_TYPES[0])
-  const comparisonDetailRef = useRef(false)
+  const flipRef = useRef(flip)
+  const metricTypeRef = useRef(metricType)
+  const similarityThresholdRef = useRef(similarityThreshold)
+  const comparisonDetailRef = useRef(showComparsionDetail)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -81,6 +83,10 @@ export const ReIdentification = () => {
   useEffect(() => {
     metricTypeRef.current = metricType
   }, [metricType])
+
+  useEffect(() => {
+    similarityThresholdRef.current = similarityThreshold
+  }, [similarityThreshold])
 
   useEffect(() => {
     comparisonDetailRef.current = showComparsionDetail
@@ -210,9 +216,7 @@ export const ReIdentification = () => {
         )
         const totalVScore = getTotalVisibilityScore(feature)
 
-        const isMatch =
-          totalSScore >=
-          feModel.similarityThresholds[metricTypeRef.current.name]
+        const isMatch = totalSScore >= similarityThresholdRef.current
 
         const comparability = getComparability(
           featureToCompareRef.current,
@@ -242,7 +246,7 @@ export const ReIdentification = () => {
 
           const totalSimilarityColor = getSimilarityColor(
             totalSScore,
-            feModel.similarityThresholds[metricTypeRef.current.name],
+            similarityThresholdRef.current,
           )
 
           const totalSimilarityText = `Total Similarity: ${totalSScore.toFixed(2)}`

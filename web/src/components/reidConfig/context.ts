@@ -15,6 +15,8 @@ export const ReIDConfigContext = createContext<{
   setPdModel: (model: PDModelInfo) => void
   metricType: MetricType
   setMetricType: (metricType: MetricType) => void
+  similarityThreshold: number
+  setSimilarityThreshold: (threshold: number) => void
   showComparsionDetail: boolean
   setShowComparsionDetail: (show: boolean) => void
 }>({
@@ -24,6 +26,8 @@ export const ReIDConfigContext = createContext<{
   setPdModel: () => {},
   metricType: METRIC_TYPES[0],
   setMetricType: () => {},
+  similarityThreshold: 0.64,
+  setSimilarityThreshold: () => {},
   showComparsionDetail: false,
   setShowComparsionDetail: () => {},
 })

@@ -7,10 +7,12 @@ export const ReIDConfig = () => {
     setPdModel,
     setFeModel,
     setMetricType,
+    setSimilarityThreshold,
     setShowComparsionDetail,
     pdModel,
     feModel,
     metricType,
+    similarityThreshold,
     showComparsionDetail,
   } = useContext(ReIDConfigContext)
 
@@ -44,7 +46,7 @@ export const ReIDConfig = () => {
           </option>
         ))}
       </select>
-      <div className="pt-1 pb-1">Metric Type</div>
+      <div className="pt-1 pb-1">Similarity Metric</div>
       <select
         className="form-select"
         onChange={(e) => {
@@ -58,6 +60,30 @@ export const ReIDConfig = () => {
           </option>
         ))}
       </select>
+      <div className="pt-1 pb-1">
+        <span>
+          Similarity Threshold: {similarityThreshold.toFixed(2)} (Default:{" "}
+          {feModel.defaultSimilarityThresholds[metricType.name].toFixed(2)})
+        </span>
+        <button
+          className="btn btn-sm bi bi-arrow-clockwise"
+          onClick={() =>
+            setSimilarityThreshold(
+              feModel.defaultSimilarityThresholds[metricType.name],
+            )
+          }
+          title="Reset to Default"
+        ></button>
+      </div>
+      <input
+        type="range"
+        className="form-range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={similarityThreshold}
+        onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
+      />
       <div className="form-check form-switch pt-2">
         <label className="form-check-label">
           <input

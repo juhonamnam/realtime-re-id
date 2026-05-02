@@ -2,7 +2,18 @@ import { useContext } from "react"
 import { ReIDConfigContext } from "./context"
 
 export const useReIDConfig = () => {
-  const { pdModel, feModel, metricType, showComparsionDetail } =
-    useContext(ReIDConfigContext)
-  return { pdModel, feModel, metricType, showComparsionDetail }
+  const {
+    pdModel,
+    feModel,
+    metricType,
+    similarityThreshold,
+    showComparsionDetail,
+  } = useContext(ReIDConfigContext)
+  return {
+    pdModel,
+    feModel,
+    metricType,
+    similarityThreshold,
+    showComparsionDetail,
+  }
 }
