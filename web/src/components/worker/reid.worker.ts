@@ -94,7 +94,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       try {
         if (!feSession) throw new Error("FE Session not initialized")
-        let features: any[] = []
+        let features = []
 
         const { data, dims } = input
         const tensor = new ort.Tensor("float32", data, dims)

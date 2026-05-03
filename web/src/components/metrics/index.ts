@@ -10,18 +10,18 @@ export const buildSimilarityFunc = (
   similarityFunc: (
     vScores: number[],
     partSScores: number[],
-    thresholds: number[],
+    partThresholds: number[],
   ) => number,
 ) => {
   return (
     features1: Feature,
     features2: Feature,
-    thresholds: number[],
+    partThresholds: number[],
   ): [number, number[]] => {
     const { vScores, partSScores } = prepareForSimilarityMetric(
       features1,
       features2,
     )
-    return [similarityFunc(vScores, partSScores, thresholds), partSScores]
+    return [similarityFunc(vScores, partSScores, partThresholds), partSScores]
   }
 }

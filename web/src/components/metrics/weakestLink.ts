@@ -21,17 +21,17 @@ const logisticRemap = (x: number, threshold: number, exp = 2): number => {
 export const getWeakestLinkSimilarity = (
   vScores: number[],
   partSScores: number[],
-  thresholds: number[],
+  partThresholds: number[],
 ): number => {
   let totalSScore = 1
 
   for (let i = 0; i < vScores.length; i++) {
     const vScore = vScores[i]
     let partSScore = partSScores[i]
-    const threshold = thresholds[i]
+    const partThreshold = partThresholds[i]
 
     partSScore = Math.max(partSScore, 0)
-    partSScore = logisticRemap(partSScore, threshold)
+    partSScore = logisticRemap(partSScore, partThreshold)
 
     totalSScore *= 1 - vScore + vScore * partSScore
   }

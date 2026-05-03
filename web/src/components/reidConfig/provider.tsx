@@ -51,7 +51,7 @@ export const ReIDConfigProvider = ({ children }: PropsWithChildren) => {
   }, [])
   const initialSimilarityThreshold = useMemo(() => {
     return initialFeModel.defaultSimilarityThresholds[initialMetricType.name]
-  }, [])
+  }, [initialFeModel, initialMetricType])
   const initialShowComparsionDetail = useMemo(() => {
     return reIdConfigLocalStorage.getShowComparsionDetail()
   }, [])

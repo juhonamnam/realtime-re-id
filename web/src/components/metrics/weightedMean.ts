@@ -17,7 +17,7 @@ const logisticRemap = (x: number, threshold: number): number => {
 export const getWeightedMeanSimilarity = (
   vScores: number[],
   partSScores: number[],
-  thresholds: number[],
+  partThresholds: number[],
 ): number => {
   const vScoreSum = vScores.reduce((sum, score) => sum + score, 0)
 
@@ -30,10 +30,10 @@ export const getWeightedMeanSimilarity = (
   for (let i = 0; i < vScores.length; i++) {
     const vScore = vScores[i]
     let partSScore = partSScores[i]
-    const threshold = thresholds[i]
+    const partThreshold = partThresholds[i]
 
     partSScore = Math.max(partSScore, 0)
-    partSScore = logisticRemap(partSScore, threshold)
+    partSScore = logisticRemap(partSScore, partThreshold)
 
     totalSScore += vScore * partSScore
   }

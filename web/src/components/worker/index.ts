@@ -13,6 +13,7 @@ export type PredictResult = {
  */
 class ReidWorker {
   private worker: Worker
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private responseMap: Map<string, (data: any) => void> = new Map()
 
   constructor() {
@@ -30,12 +31,9 @@ class ReidWorker {
     }
   }
 
-  private call(
-    type: string,
-    payload?: any,
-    transfer?: Transferable[],
-  ): Promise<any> {
-    return new Promise((resolve) => {
+  private call(type: string, payload?: unknown, transfer?: Transferable[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new Promise<any>((resolve) => {
       this.responseMap.set(type, resolve)
       this.worker.postMessage({ type, payload }, transfer || [])
     })
