@@ -54,23 +54,19 @@ def get_segment_groups(variant):
                 {"color": [47/255, 150/255, 224/255, 0.5],
                  "dp_mask_indices": [0],
                  "is_background": False,
-                 "name": "torso",
-                 "default_threshold": 0.6},
+                 "name": "torso"},
                 {"color": [100/255, 255/255, 0/255, 0.5],
                  "dp_mask_indices": [1, 2, 9, 10, 11, 12],
                  "is_background": False,
-                 "name": "arm",
-                 "default_threshold": 0.5},
+                 "name": "arm"},
                 {"color": [28/255, 219/255, 169/255, 0.5],
                  "dp_mask_indices": [5, 6],
                  "is_background": False,
-                 "name": "upper leg",
-                 "default_threshold": 0.5},
+                 "name": "upper leg"},
                 {"color": [212/255, 24/255, 100/255, 0.5],
                  "dp_mask_indices": [3, 4, 7, 8],
                  "is_background": False,
-                 "name": "lower leg",
-                 "default_threshold": 0.5}]
+                 "name": "lower leg"}]
     if variant == "5a":
         return [{"color": [0/255, 12/255, 55/255, 0.5],
                  "dp_mask_indices": [],
@@ -80,28 +76,23 @@ def get_segment_groups(variant):
                 {"color": [255/255, 165/255, 0/255, 0.5],
                  "dp_mask_indices": [13],
                  "is_background": False,
-                 "name": "head",
-                 "default_threshold": 0.5},
+                 "name": "head"},
                 {"color": [47/255, 150/255, 224/255, 0.5],
                  "dp_mask_indices": [0],
                  "is_background": False,
-                 "name": "torso",
-                 "default_threshold": 0.6},
+                 "name": "torso"},
                 {"color": [100/255, 255/255, 0/255, 0.5],
                  "dp_mask_indices": [1, 2, 9, 10, 11, 12],
                  "is_background": False,
-                 "name": "arm",
-                 "default_threshold": 0.5},
+                 "name": "arm"},
                 {"color": [28/255, 219/255, 169/255, 0.5],
                  "dp_mask_indices": [5, 6],
                  "is_background": False,
-                 "name": "upper leg",
-                 "default_threshold": 0.5},
+                 "name": "upper leg"},
                 {"color": [212/255, 24/255, 100/255, 0.5],
                  "dp_mask_indices": [3, 4, 7, 8],
                  "is_background": False,
-                 "name": "lower leg",
-                 "default_threshold": 0.5},
+                 "name": "lower leg"},
                  ]
 
     raise ValueError(f"Unknown variant: {variant}")
@@ -120,14 +111,3 @@ def get_attention_groups(variant):
         list[dict]: List of attention group configurations.
     """
     return [{**seg, "seg_idx": idx} for idx, seg in enumerate(get_segment_groups(variant)) if not seg["is_background"]]
-
-def get_default_thresholds(variant):
-    """Returns the default thresholds for each non-background segment group.
-
-    Args:
-        variant (str): Variant name.
-
-    Returns:
-        list[float]: List of default thresholds.
-    """
-    return [seg["default_threshold"] for seg in get_segment_groups(variant) if not seg["is_background"]]
