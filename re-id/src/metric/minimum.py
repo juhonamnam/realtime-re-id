@@ -1,5 +1,7 @@
 import torch
 
+__all__ = ['get_minimum_similarity_score']
+
 def logistic_remap(x, threshold):
     """Remaps a value using a logistic function such that the threshold maps to 0.5.
 

@@ -1,5 +1,7 @@
 import torch
 
+__all__ = ['get_weakest_link_similarity_score']
+
 VALUE_AT_THRESHOLD = 0.7
 
 def logistic_remap(x, threshold, exp=2):

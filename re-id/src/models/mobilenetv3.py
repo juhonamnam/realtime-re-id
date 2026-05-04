@@ -6,6 +6,8 @@ from src.utils.file_path import get_pretrained_file_path
 from torchvision.ops.misc import Conv2dNormActivation, SqueezeExcitation
 
 
+__all__ = ["MobilenetV3"]
+
 def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
     """Ensures that all layers have a channel number that is divisible by 8.
 

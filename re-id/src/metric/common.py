@@ -1,5 +1,8 @@
 import torch
 
+__all__ = ['get_emb_similarity_vector',
+           'prepare_for_similarity_metric']
+
 def get_emb_similarity_vector(emb_vec1, emb_vec2):
     """Calculates the element-wise product of normalized embedding vectors.
 

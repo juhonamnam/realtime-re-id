@@ -3,6 +3,8 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+__all__ = ['SegLoss']
+
 class FocalLoss(nn.Module):
     """Implementation of Focal Loss for binary classification.
 

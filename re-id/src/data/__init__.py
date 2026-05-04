@@ -3,19 +3,11 @@ from torch.utils.data.sampler import RandomSampler
 from . import seg, reid
 from .ReIDRandomSampler import ReIDRandomSampler
 
-class SequentialLoader:
-    def __init__(self, *loaders: dataloader.DataLoader):
-        self.loaders = loaders
-
-    def __iter__(self):
-        didx = 0
-        for loader in self.loaders:
-            for batch in loader:
-                yield (didx, batch)
-            didx += 1
-
-    def __len__(self):
-        return sum(len(loader) for loader in self.loaders)
+__all__ = ['get_bb_dataloaders',
+           'get_seg_dataloaders',
+           'get_re_id_dataloaders',
+           'get_seg_test_data',
+           'get_re_id_test_data']
 
 def get_bb_dataloaders(seg_variant,
                        image_resolution,

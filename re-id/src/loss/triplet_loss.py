@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+__all__ = ['TripletLoss']
+
 class TripletLoss(nn.Module):
     """Calculates Triplet Loss with hardest positive and hardest negative mining.
 

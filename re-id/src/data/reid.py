@@ -13,6 +13,8 @@ import collections
 from src.utils.file_path import get_dataset_path
 import xml.etree.ElementTree as ET
 
+__all__ = ['get_dataset']
+
 DATASET_TYPE = "re_id"
 
 def get_data_path():

@@ -9,6 +9,8 @@ from src.utils.segment_info import get_segment_groups, get_attention_groups
 from .mobilenetv3 import MobilenetV3
 from src.utils.file_path import get_weight_file_path, get_pretrained_file_path, get_export_file_path
 
+__all__ = ['ReIDModel']
+
 
 # ImageNet Normalization
 class Normalize(nn.Module):
@@ -101,10 +103,7 @@ class ReIDModel(nn.Module):
 
         self.seg_to_att_indices = [x["seg_idx"] for x in self.attention_groups]
 
-        self.model_name = "_".join(["reid",
-                                    model_variant,
-                                    f"{self.attention_num}a{self.emb_len}e",
-                                    f"{input_resolution[1]}x{input_resolution[0]}"])
+        self.model_name = self.get_model_name(model_variant, seg_variant, emb_len, input_resolution)
 
         self.export_file_path = get_export_file_path(f"{self.model_name}.pt")
         self.onnx_export_file_path = get_export_file_path(f"{self.model_name}.onnx")
@@ -142,6 +141,24 @@ class ReIDModel(nn.Module):
             except:
                 print("Failed to load pretrained weight")
 
+    @staticmethod
+    def get_model_name(model_variant, seg_variant, emb_len, input_resolution):
+        """Generates a unique model name based on configuration parameters.
+
+        Args:
+            model_variant (str): Backbone variant.
+            seg_variant (str): Segmentation configuration variant.
+            emb_len (int): Embedding vector length.
+            input_resolution (tuple[int, int]): Input resolution (Height, Width).
+
+        Returns:
+            str: Generated model name.
+        """
+        model_name = "_".join(["reid",
+                               model_variant,
+                               f"{seg_variant}{emb_len}e",
+                               f"{input_resolution[1]}x{input_resolution[0]}"])
+        return model_name
 
     def _forward(self, x: torch.Tensor):
         """Internal forward pass shared by different model versions.

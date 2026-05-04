@@ -1,5 +1,7 @@
 import torch.nn as nn
 
+__all__ = ['ClassLoss']
+
 class ClassLoss(nn.Module):
     """Calculates cross-entropy loss for identity classification.
 
