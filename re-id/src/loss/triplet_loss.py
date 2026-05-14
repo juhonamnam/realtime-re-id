@@ -13,14 +13,16 @@ class TripletLoss(nn.Module):
         margin (float): The margin between positive and negative distances.
         ranking_loss (nn.MarginRankingLoss): Underlying ranking loss module.
     """
-    def __init__(self, margin=0.6):
+    def __init__(self, margin=0.3, topk=3):
         """Initializes TripletLoss.
 
         Args:
-            margin (float, optional): Margin for triplet loss. Defaults to 0.6.
+            margin (float, optional): Margin for triplet loss. Defaults to 0.3.
+            topk (int, optional): Number of top vectors to consider for loss calculation. Defaults to 3.
         """
         super(TripletLoss, self).__init__()
         self.margin = margin
+        self.topk = topk
         self.ranking_loss = nn.MarginRankingLoss(margin=margin)
 
     def forward(self, weights, vectors, targets):
@@ -52,8 +54,11 @@ class TripletLoss(nn.Module):
 
         mask = targets.expand(batch, batch).eq(targets.expand(batch, batch).t())       # batch x batch
 
-        dist_ap = dist.masked_fill(~mask, -1).amax(dim=1)  # hardest positive
-        dist_an = dist.masked_fill(mask, 1e12).amin(dim=1) # hardest negative
+        dist_ap = dist.masked_fill(~mask, -1).topk(self.topk, dim=1)                   # hardest positives
+        dist_an = dist.masked_fill(mask, 1e12).topk(self.topk, dim=1, largest=False)   # hardest negatives
+
+        dist_ap = dist_ap.values.flatten()
+        dist_an = dist_an.values.flatten()
 
         # Compute ranking hinge loss
         y = torch.ones_like(dist_an)

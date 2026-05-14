@@ -178,12 +178,12 @@ class ReIDModel(nn.Module):
         fused_feat, local_feat = self.backbone(x)                                # batch, out_ch, height, width
         seg = self.segmentation(fused_feat)                                      # batch, segmentation_num, height, width
 
-        raw_att = seg[:, self.seg_to_att_indices]                                # batch, attention_num, height, width
+        seg_max = seg.max(dim=1, keepdim=True)                                   # batch, 1, height, width 
 
-        att_max = raw_att.max(dim=1, keepdim=True)                               # batch, 1, height, width 
+        att = torch.zeros_like(seg)                                              # batch, attention_num, height, width
+        att = att.scatter(1, seg_max.indices, seg_max.values)                    # batch, attention_num, height, width
 
-        att = torch.zeros_like(raw_att)                                          # batch, attention_num, height, width
-        att = att.scatter(1, att_max.indices, att_max.values)                    # batch, attention_num, height, width
+        att = att[:, self.seg_to_att_indices]                                    # batch, attention_num, height, width
 
         v_scores = att.amax(dim=(2, 3))                                          # batch, attention_num
 
@@ -195,6 +195,7 @@ class ReIDModel(nn.Module):
 
             emb_vec = att_weight * emb_vec                                       # batch, emb_len, height, width
             emb_vec = emb_vec.sum(dim=(2, 3))                                    # batch, emb_len
+            emb_vec /= att_weight.sum(dim=(2, 3)).clamp(min=1)                   # batch, emb_len
             emb_vecs.append(emb_vec)
         emb_vecs = torch.stack(emb_vecs, dim=1)                                  # batch, attention_num, feature_len
 
@@ -322,11 +323,10 @@ class ReIDTrainModel(nn.Module):
 
         global_feat = global_feat * global_att
         global_feat = global_feat.sum(dim=(2, 3))
+        global_feat /= global_att.sum(dim=(2, 3)).clamp(min=1e-12)
 
-        ft = emb_vecs / att.sum(dim=(2, 3)).unsqueeze(-1).clamp(min=1e-12)
+        ft = emb_vecs
         ft = ft * v_scores.unsqueeze(-1)
-
-        global_feat = global_feat / global_att.sum(dim=(2, 3)).clamp(min=1e-12)
 
         global_v_score = global_att.amax(dim=(2, 3))
         global_feat = global_feat * global_v_score

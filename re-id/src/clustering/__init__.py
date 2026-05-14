@@ -36,16 +36,17 @@ def cluster_people(people: list[Person], threshold: float, similarity_func: call
                            key=lambda x: x[1].v_scores_sum, reverse=True)
     for person_idx, person in sorted_people:
         best_cluster = None
-        best_similarity = -1
+        best_sim_x_comp = -1
         best_cluster_index = -1
 
         for cluster_idx, cluster in enumerate(clusters):
             similarity = similarity_func(person, cluster)
-            comparability = get_comparability(person, cluster)
-            if similarity < threshold or comparability < 0.5:
+            if similarity < threshold:
                 continue
-            if similarity > best_similarity:
-                best_similarity = similarity
+            comparability = get_comparability(person, cluster)
+            sim_x_comp = similarity * comparability
+            if sim_x_comp > best_sim_x_comp:
+                best_sim_x_comp = sim_x_comp
                 best_cluster = cluster
                 best_cluster_index = cluster_idx
 
