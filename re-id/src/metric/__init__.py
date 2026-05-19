@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from .common import *
-from .weakest_link import get_weakest_link_similarity_score
+from .product import get_product_similarity_score
 from .weighted_mean import get_weighted_mean_similarity_score
 from .weighted_geometric_mean import get_weighted_geometric_mean_similarity_score
 from .minimum import get_minimum_similarity_score
@@ -9,7 +9,7 @@ from .minimum import get_minimum_similarity_score
 __all__ = ['SimilarityMetric']
 
 SIMILARITY_METRIC_REGISTRY = {
-    'weakest_link': get_weakest_link_similarity_score,
+    'product': get_product_similarity_score,
     'weighted_mean': get_weighted_mean_similarity_score,
     'weighted_geometric_mean': get_weighted_geometric_mean_similarity_score,
     'minimum': get_minimum_similarity_score,
@@ -20,7 +20,7 @@ SIMILARITY_METRICS = list(SIMILARITY_METRIC_REGISTRY.keys())
 class SimilarityMetric():
     similarity_metrics = SIMILARITY_METRICS
     metric_num = len(similarity_metrics)
-    def __init__(self, default_method='weakest_link', default_part_thresholds=0.5):
+    def __init__(self, default_method='product', default_part_thresholds=0.5):
         super(SimilarityMetric, self).__init__()
         if default_method in SIMILARITY_METRIC_REGISTRY:
             self.default_similarity_func = SIMILARITY_METRIC_REGISTRY[default_method]

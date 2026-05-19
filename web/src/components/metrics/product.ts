@@ -18,7 +18,7 @@ const logisticRemap = (x: number, threshold: number, exp = 2): number => {
   return logistic
 }
 
-export const getWeakestLinkSimilarity = (
+export const getProductSimilarity = (
   vScores: number[],
   partSScores: number[],
   partThresholds: number[],

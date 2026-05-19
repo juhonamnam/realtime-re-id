@@ -49,18 +49,18 @@ const getTotalVisibilityScore = (feature: Feature) => {
  * @returns A comparability score between 0 and 1.
  */
 const getComparability = (featureToCompare: Feature, feature: Feature) => {
-  return (
-    feature.vScores.reduce((acc, score, i) => {
-      const compareScore = featureToCompare.vScores[i]
-      const unknownRatio = 1 - compareScore
+  let sumOfVisibility = 0
+  let sumOfMinVisibility = 0
 
-      return (
-        acc +
-        unknownRatio +
-        compareScore * (score / Math.max(score, compareScore))
-      )
-    }) / feature.vScores.length
-  )
+  for (let i = 0; i < feature.vScores.length; i++) {
+    const compareScore = featureToCompare.vScores[i]
+    const score = feature.vScores[i]
+
+    sumOfVisibility += compareScore
+    sumOfMinVisibility += Math.min(compareScore, score)
+  }
+
+  return sumOfVisibility === 0 ? 0 : sumOfMinVisibility / sumOfVisibility
 }
 
 /**

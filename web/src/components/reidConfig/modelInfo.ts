@@ -1,5 +1,5 @@
 import {
-  getWeakestLinkSimilarity,
+  getProductSimilarity,
   getWeightedMeanSimilarity,
   getWeightedGeometricMeanSimilarity,
   getMinimumSimilarity,
@@ -18,7 +18,7 @@ export type PDModelInfo = {
 }
 
 type MetricName =
-  | "Weakest Link"
+  | "Product"
   | "Weighted Mean"
   | "Weighted Geometric Mean"
   | "Minimum"
@@ -58,7 +58,7 @@ export const FE_MODELS: FEModelInfo[] = [
     path: `${baseUrl}/model/reid_m3small_5a24e_64x192.onnx`,
     shape: [192, 64] as const,
     defaultSimilarityThresholds: {
-      ["Weakest Link"]: 0.64,
+      ["Product"]: 0.64,
       ["Weighted Mean"]: 0.66,
       ["Weighted Geometric Mean"]: 0.64,
       ["Minimum"]: 0.64,
@@ -84,8 +84,8 @@ export type MetricType = {
 
 export const METRIC_TYPES: MetricType[] = [
   {
-    name: "Weakest Link" as const,
-    function: buildSimilarityFunc(getWeakestLinkSimilarity),
+    name: "Product" as const,
+    function: buildSimilarityFunc(getProductSimilarity),
   },
   {
     name: "Weighted Mean" as const,

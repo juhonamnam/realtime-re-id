@@ -1,7 +1,7 @@
 import { prepareForSimilarityMetric } from "./common"
 import type { Feature } from "../type"
 
-export { getWeakestLinkSimilarity } from "../metrics/weakestLink"
+export { getProductSimilarity } from "../metrics/product"
 export { getWeightedMeanSimilarity } from "../metrics/weightedMean"
 export { getWeightedGeometricMeanSimilarity } from "../metrics/weightedGeometricMean"
 export { getMinimumSimilarity } from "../metrics/minimum"

@@ -43,7 +43,6 @@ def get_minimum_similarity_score(v_scores, part_s_scores, part_thresholds=0.5):
         part_s_score = logistic_remap(part_s_score, part_threshold)
 
         # Consider visibility: if visibility is low, we ignore this part for the minimum
-        # Following the pattern in weakest_link: 1 - v + v * s
         part_min_score = 1 - v_score + v_score * part_s_score
         total_s_score = torch.min(total_s_score, part_min_score)
 

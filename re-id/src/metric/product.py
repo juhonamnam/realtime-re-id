@@ -1,6 +1,6 @@
 import torch
 
-__all__ = ['get_weakest_link_similarity_score']
+__all__ = ['get_product_similarity_score']
 
 VALUE_AT_THRESHOLD = 0.7
 
@@ -20,8 +20,8 @@ def logistic_remap(x, threshold, exp=2):
                               torch.log(torch.tensor((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD)) - 
                               exp * torch.log(x / (1 - x))))
 
-def get_weakest_link_similarity_score(v_scores, part_s_scores, part_thresholds=0.5):
-    """Calculates similarity using the 'weakest link' principle.
+def get_product_similarity_score(v_scores, part_s_scores, part_thresholds=0.5):
+    """Calculates similarity using the product principle.
 
     The score is the product of part similarities, where each part's influence
     is weighted by its visibility.
