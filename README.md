@@ -30,7 +30,9 @@ To determine if two images represent the same person, multiple metrics are suppo
 - **Weighted Geometric Mean**: Provides a balance between the mean and the product.
 - **Minimum**: Focuses entirely on the "weakest link" or the least similar visible part.
 
-The **Product** and **Minimum** metrics were introduced specifically to capture critical mismatches (e.g., different shoes on otherwise similar outfits), which is key to distinguishing different individuals.
+The **Product** and **Minimum** metrics were introduced specifically to capture critical mismatches. Intuitively, when comparing two people, a single significant difference (e.g., different shoes on otherwise similar outfits) is often enough to determine they are different individuals. By considering the "weakest link" among part-level similarities rather than just an average, the system becomes more robust against false positives in crowded or similar-looking environments.
+
+Furthermore, each part-level similarity score undergoes **logistic remapping**. This is necessary because different body parts (e.g., Torso vs. Legs) may have different optimal similarity thresholds due to their varying descriptive power or commonality. The remapping process aligns the chosen threshold for each body part to a uniform value. These thresholds are carefully selected to maximize true positives while maintaining clear separability between different individuals. The core philosophy is to decisively eliminate candidates that are "surely different" while retaining those that are "potentially the same."
 
 ![Comparison Diagram](comparison-diagram.jpg)
 *Diagram showing how body part similarities are combined.*
