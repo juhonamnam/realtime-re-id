@@ -22,9 +22,12 @@ The model uses **MobileNetV3** as its backbone for high-speed inference, coupled
 *Visual representation of the feature extraction and segmentation process.*
 
 #### Comparison & Metrics
-Matching between two images is performed using the **cosine similarity** of each body part's embedding. Visibility scores are used to selectively weight these parts.
+Matching between two images is performed using the **cosine similarity** of each body part's embedding. Then each part-level similarity is combined into a single similarity score. Each part's similarity is weighted by its corresponding visibility score to account for occlusions or missing parts. For example, if the "Arms" part is not visible in one image, its similarity score will have less influence on the overall comparison.
 
-To determine if two images represent the same person, multiple metrics are supported to combine part-level similarities into a single score:
+![Comparison Diagram](comparison-diagram.jpg)
+*Visual representation of the comparison process.*
+
+Multiple metrics are supported to combine part-level similarities into a single score:
 - **Product**: Intuitively weights mismatches more heavily. If one part (e.g., shoes) differs significantly, the overall score drops sharply.
 - **Weighted Mean**: The standard approach for score aggregation.
 - **Weighted Geometric Mean**: Provides a balance between the mean and the product.
@@ -34,8 +37,15 @@ The **Product** and **Minimum** metrics were introduced specifically to capture 
 
 Furthermore, each part-level similarity score undergoes **logistic remapping**. This is necessary because different body parts (e.g., Torso vs. Legs) may have different optimal similarity thresholds due to their varying descriptive power or commonality. The remapping process aligns the chosen threshold for each body part to a uniform value. These thresholds are carefully selected to maximize true positives while maintaining clear separability between different individuals. The core philosophy is to decisively eliminate candidates that are "surely different" while retaining those that are "potentially the same."
 
-![Comparison Diagram](comparison-diagram.jpg)
-*Diagram showing how body part similarities are combined.*
+<p align="center">
+  <img src="s_score_dist_head.png" width="32%" />
+  <img src="s_score_dist_torso.png" width="32%" />
+  <img src="s_score_dist_arm.png" width="32%" />
+</p>
+<p align="center">
+  <img src="s_score_dist_upper_leg.png" width="32%" />
+  <img src="s_score_dist_lower_leg.png" width="32%" />
+</p>
 
 ### Training
 
