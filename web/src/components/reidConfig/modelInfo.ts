@@ -63,7 +63,7 @@ export const FE_MODELS: FEModelInfo[] = [
       ["Weighted Geometric Mean"]: 0.64,
       ["Minimum"]: 0.64,
     },
-    partSimilarityThresholds: [0.5, 0.6, 0.5, 0.5, 0.5],
+    partSimilarityThresholds: [0.5, 0.6, 0.5, 0.6, 0.5],
     visibilityThreshold: 0.7,
     segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg"],
   },
