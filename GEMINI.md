@@ -1,6 +1,6 @@
 # Realtime Re-ID
 
-A person re-identification system that performs real-time detection and identification in the browser using ONNX models.
+A person re-identification system optimized for high-performance inference on edge devices, performing real-time detection and identification in the browser using ONNX models.
 
 ## Project Overview
 

@@ -1,6 +1,8 @@
 # Real-time Person Re-Identification with Body Part Segmentation
 
-This repository contains a real-time person re-identification (Re-ID) system that performs detection and identification directly in the browser. The model is inspired by **BPBReID** (Body-Part-Based Re-Identification), utilizing a CNN-based architecture to segment body parts and extract localized embedding vectors for robust matching.
+This repository contains a real-time person re-identification (Re-ID) system optimized for high-performance inference on edge devices. The model is inspired by [**BPBReID** (Body-Part-Based Re-Identification)](https://github.com/vlsomers/bpbreid), utilizing a CNN-based architecture to segment body parts and extract localized embedding vectors for robust matching.
+
+By prioritizing inference speed for real-time applications, this model may sacrifice some absolute accuracy compared to heavier architectures. As such, it is particularly well-suited for use as a high-speed filter to narrow down potential candidates, which can then be further refined by more computationally intensive models if necessary.
 
 ## Model Overview
 
