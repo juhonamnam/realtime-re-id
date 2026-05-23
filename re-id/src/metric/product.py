@@ -16,9 +16,7 @@ def logistic_remap(x, threshold, exp=2):
         torch.Tensor: Remapped value(s).
     """
     x = x.clamp(min=1e-6, max=1 - 1e-6)
-    return 1 / (1 + torch.exp(exp * torch.log(torch.tensor(threshold / (1 - threshold))) +
-                              torch.log(torch.tensor((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD)) - 
-                              exp * torch.log(x / (1 - x))))
+    return 1 / (1 + (threshold / (1 - threshold)) ** exp * ((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD) * ((1 - x) / x) ** exp)
 
 def get_product_similarity_score(v_scores, part_s_scores, part_thresholds=0.5):
     """Calculates similarity using the product principle.

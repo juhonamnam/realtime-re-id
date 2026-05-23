@@ -10,11 +10,9 @@ const logisticRemap = (x: number, threshold: number, exp = 2): number => {
   const logistic =
     1 /
     (1 +
-      Math.exp(
-        exp * Math.log(threshold / (1 - threshold)) +
-          Math.log((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD) -
-          exp * Math.log(x / (1 - x)),
-      ))
+      (threshold / (1 - threshold)) ** exp *
+        ((1 - VALUE_AT_THRESHOLD) / VALUE_AT_THRESHOLD) *
+        ((1 - x) / x) ** exp)
   return logistic
 }
 

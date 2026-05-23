@@ -13,8 +13,7 @@ def logistic_remap(x, threshold):
         torch.Tensor: Remapped value(s).
     """
     x = x.clamp(min=1e-6, max=1 - 1e-6)
-    return 1 / (1 + torch.exp(torch.log(torch.tensor(threshold / (1 - threshold))) - 
-                              torch.log(x / (1 - x))))
+    return 1 / (1 + (threshold / (1 - threshold)) * ((1 - x) / x))
 
 def get_weighted_mean_similarity_score(v_scores, part_s_scores, part_thresholds=0.5):
     """Calculates the weighted mean similarity score across all body parts.
