@@ -35,7 +35,7 @@ When combining the part-level similarities into a single score, most common appr
 
 In order to implement this "weakest link" approach, we experimented with various methods of combining the part-level similarities, and found that the **Product** method provided the best performance.
 
-\$\$ Similarity\_{total} = \prod\_{i=1}^{n} (1-v_i) + v_i \cdot \text{remap}\_i(\text{cos\\\_sim}(f_i, g_i)) \$\$
+\$\$ Similarity\_{total} = \prod\_{i=1}^{n} \left( (1-v_i) + v_i \cdot \text{remap}\_i(\text{cos\\\_sim}(f_i, g_i)) \right) \$\$
 
 We take the product of part-level similarities, where each part's contribution is weighted by its visibility score \$v_i\$. If a part is not visible (\$v_i \approx 0\$), it contributes a neutral value of 1 to the product, effectively ignoring that part. If a part is fully visible (\$v_i \approx 1\$), its similarity score has full influence on the final similarity.
 
