@@ -129,6 +129,14 @@ class ReIDModel(nn.Module):
             nn.Softmax2d(),
         )
 
+        self.emb_vec_gate = nn.ModuleList([
+            nn.Sequential(Conv2dNormActivation(self.backbone.out_ch,
+                                               96,
+                                               kernel_size=1,
+                                               stride=1,
+                                               activation_layer=nn.Hardswish),
+                          nn.Conv2d(96, self.emb_len, kernel_size=1)) for _ in range(self.attention_num)])
+
         self.emb_vec = nn.ModuleList([Conv2dNormActivation(self.backbone.out_ch,
                                                            self.emb_len,
                                                            kernel_size=1,
@@ -188,6 +196,7 @@ class ReIDModel(nn.Module):
         v_scores = att.amax(dim=(2, 3))                                          # batch, attention_num
 
         emb_vecs = []
+        emb_vec_gates = []
         for i in range(self.attention_num):
             emb_vec = self.emb_vec[i](local_feat)                                # batch, emb_len, height, width
 
@@ -197,9 +206,19 @@ class ReIDModel(nn.Module):
             emb_vec = emb_vec.sum(dim=(2, 3))                                    # batch, emb_len
             emb_vec /= att_weight.sum(dim=(2, 3)).clamp(min=1)                   # batch, emb_len
             emb_vecs.append(emb_vec)
-        emb_vecs = torch.stack(emb_vecs, dim=1)                                  # batch, attention_num, feature_len
 
-        return local_feat, seg, att, v_scores, emb_vecs
+            emb_vec_gate = self.emb_vec_gate[i](fused_feat)                      # batch, emb_len, height, width
+
+            emb_vec_gate = att_weight * emb_vec_gate                             # batch, emb_len, height, width
+            emb_vec_gate = emb_vec_gate.sum(dim=(2, 3))                          # batch, emb_len
+            emb_vec_gate /= att_weight.sum(dim=(2, 3)).clamp(min=1)              # batch, emb_len
+            emb_vec_gate = torch.sigmoid(emb_vec_gate)                           # batch, emb_len
+            emb_vec_gates.append(emb_vec_gate)
+
+        emb_vecs = torch.stack(emb_vecs, dim=1)                                  # batch, attention_num, feature_len
+        emb_vec_gates = torch.stack(emb_vec_gates, dim=1)                        # batch, attention_num, feature_len
+
+        return local_feat, seg, att, v_scores, emb_vecs, emb_vec_gates
 
     def forward(self, x: torch.Tensor):
         """Forward pass for the main Re-ID model.
@@ -214,8 +233,8 @@ class ReIDModel(nn.Module):
                 v_scores (torch.Tensor): Visibility scores.
                 emb_vecs (torch.Tensor): Embedding vectors.
         """
-        _, seg, att, v_scores, emb_vecs = self._forward(x)
-        return (seg, att), (v_scores, emb_vecs)
+        _, seg, att, v_scores, emb_vecs, emb_vec_gates = self._forward(x)
+        return (seg, att), (v_scores, emb_vecs, emb_vec_gates)
 
     def export(self):
         """Creates an instance of the model optimized for export.
@@ -226,7 +245,7 @@ class ReIDModel(nn.Module):
         export_model = ReIDExportModel(self)
         return export_model
 
-    def get_train_model(self, class_nums: list[int]):
+    def get_train_model(self, class_num: int):
         """Creates an instance of the model for training.
 
         Args:
@@ -235,7 +254,7 @@ class ReIDModel(nn.Module):
         Returns:
             ReIDTrainModel: Model wrapper for training.
         """
-        return ReIDTrainModel(self, class_nums)
+        return ReIDTrainModel(self, class_num)
 
     def get_gradcam_model(self):
         """Creates an instance of the model for GradCAM visualization.
@@ -295,8 +314,16 @@ class ReIDTrainModel(nn.Module):
         for p in self.reid_model.segmentation.parameters():
             p.requires_grad = True
 
-    def train_re_id(self):
-        """Freezes both backbone and segmentation head for Re-ID head training."""
+    def train_embvec(self):
+        """Freezes both backbone and segmentation head for embedding training."""
+        for p in self.reid_model.backbone.parameters():
+            p.requires_grad = False
+
+        for p in self.reid_model.segmentation.parameters():
+            p.requires_grad = False
+
+    def train_embvec_gate(self):
+        """Enables gradients for embedding gates, freezes backbone and segmentation."""
         for p in self.reid_model.backbone.parameters():
             p.requires_grad = False
 
@@ -316,7 +343,7 @@ class ReIDTrainModel(nn.Module):
                 emb_vecs (torch.Tensor): Embedding vectors.
                 class_logits (torch.Tensor): Predicted classification logits.
         """
-        local_feat, seg, att, v_scores, emb_vecs = self.reid_model._forward(x)
+        local_feat, seg, att, v_scores, emb_vecs, emb_vec_gates = self.reid_model._forward(x)
 
         global_feat = self.global_features(local_feat)
         global_att = att.sum(dim=1, keepdim=True)
@@ -337,7 +364,7 @@ class ReIDTrainModel(nn.Module):
 
         class_logits = self.logit(concat_feature)
 
-        return seg, v_scores, emb_vecs, class_logits
+        return seg, v_scores, emb_vecs, emb_vec_gates, class_logits
 
 
 class ReIDExportModel(ReIDModel):
@@ -367,8 +394,8 @@ class ReIDExportModel(ReIDModel):
         Returns:
             tuple: (v_scores, emb_vecs)
         """
-        _, _, _, v_scores, emb_vecs = super()._forward(x)
-        return v_scores, emb_vecs
+        _, _, _, v_scores, emb_vecs, emb_vec_gates = super()._forward(x)
+        return v_scores, emb_vecs, emb_vec_gates
 
 
 class ReIDGradCAM(ReIDModel):
@@ -431,13 +458,15 @@ class ReIDGradCAM(ReIDModel):
         self.eval()
         inputs = torch.cat((input1.unsqueeze(0), input2.unsqueeze(0)), 0)
 
-        _, _, att, v_scores, emb_vecs = self._forward(inputs)
+        _, _, att, v_scores, emb_vecs, emb_vec_gates = self._forward(inputs)
 
         activation_maps = []
         for i in range(self.attention_num):
             outs = emb_vecs[:, i]
+            gates = emb_vec_gates[:, i]
 
-            emb_vec_weights = get_emb_similarity_vector(outs[0], outs[1])
+            emb_vec_weights = get_emb_similarity_vector(outs[0], gates[0],
+                                                        outs[1], gates[1])
 
             results = torch.FloatTensor()
 
@@ -463,7 +492,7 @@ class ReIDGradCAM(ReIDModel):
 
             activation_maps.append(results)
 
-        return att, v_scores, emb_vecs, activation_maps
+        return att, v_scores, emb_vecs, emb_vec_gates, activation_maps
 
     def forward_hook(self, _, input_, output):
         """Hook to capture forward activations.

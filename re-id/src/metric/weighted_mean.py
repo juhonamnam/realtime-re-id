@@ -36,9 +36,6 @@ def get_weighted_mean_similarity_score(v_scores, part_s_scores, part_thresholds=
     total_s_score = torch.tensor(0.).to(v_scores.device)
 
     for v_score, part_s_score, part_threshold in zip(v_scores, part_s_scores, part_thresholds):
-        if part_s_score.isnan():
-            part_s_score = torch.tensor(-1.).view(part_s_score.shape).to(part_s_score.device)
-
         part_s_score = part_s_score.clamp(min=0)
         part_s_score = logistic_remap(part_s_score, part_threshold)
 

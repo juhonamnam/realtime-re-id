@@ -3,9 +3,10 @@ import torch
 __all__ = ['Person', 'cluster_people']
 
 class Person:
-    def __init__(self, v_scores: torch.Tensor, emb_vecs: torch.Tensor):
+    def __init__(self, v_scores: torch.Tensor, emb_vecs: torch.Tensor, emb_vec_gates: torch.Tensor):
         self.v_scores = v_scores
         self.emb_vecs = emb_vecs
+        self.emb_vec_gates = emb_vec_gates
         self.v_scores_sum = v_scores.sum().item()
 
     def __str__(self):
@@ -13,7 +14,7 @@ class Person:
 
 class Cluster(Person):
     def __init__(self, person: Person):
-        super().__init__(person.v_scores, person.emb_vecs)
+        super().__init__(person.v_scores, person.emb_vecs, person.emb_vec_gates)
         self.members = [person]
 
     def add_member(self, person: Person):
@@ -22,6 +23,8 @@ class Cluster(Person):
             if person.v_scores[i] > self.v_scores[i]:
                 self.v_scores[i] = person.v_scores[i]
                 self.emb_vecs[i] = person.emb_vecs[i]
+                self.emb_vec_gates[i] = person.emb_vec_gates[i]
+        self.v_scores_sum = self.v_scores.sum().item()
 
 def get_comparability(query: Person, cluster: Cluster) -> float:
     comparability = 0.0

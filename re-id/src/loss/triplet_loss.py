@@ -13,7 +13,7 @@ class TripletLoss(nn.Module):
         margin (float): The margin between positive and negative distances.
         ranking_loss (nn.MarginRankingLoss): Underlying ranking loss module.
     """
-    def __init__(self, margin=0.3, topk=3):
+    def __init__(self, margin=0.2, topk=3):
         """Initializes TripletLoss.
 
         Args:

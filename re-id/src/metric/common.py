@@ -1,9 +1,11 @@
 import torch
+import torch.nn.functional as F
 
 __all__ = ['get_emb_similarity_vector',
            'prepare_for_similarity_metric']
 
-def get_emb_similarity_vector(emb_vec1, emb_vec2):
+def get_emb_similarity_vector(emb_vec1, emb_vec_gate1,
+                              emb_vec2, emb_vec_gate2):
     """Calculates the element-wise product of normalized embedding vectors.
 
     This represents the components of cosine similarity before summation.
@@ -15,18 +17,25 @@ def get_emb_similarity_vector(emb_vec1, emb_vec2):
     Returns:
         torch.Tensor: Element-wise product of L2-normalized vectors.
     """
-    # Cosine Similarity
-    norm1 = torch.norm(emb_vec1, p=2)
-    norm2 = torch.norm(emb_vec2, p=2)
 
-    unit_v1 = emb_vec1 / norm1
-    unit_v2 = emb_vec2 / norm2
+    gate = torch.min(emb_vec_gate1, emb_vec_gate2)
+
+    v1 = emb_vec1 * gate
+    v2 = emb_vec2 * gate
+
+    # Cosine Similarity
+    norm1 = torch.norm(v1, p=2)
+    norm2 = torch.norm(v2, p=2)
+
+    unit_v1 = emb_vec1 / norm1.clamp(min=1e-8)
+    unit_v2 = emb_vec2 / norm2.clamp(min=1e-8)
 
     product = unit_v1 * unit_v2
 
     return product
 
-def get_emb_similarity_score(emb_vec1, emb_vec2):
+def get_emb_similarity_score(emb_vec1, emb_vec_gate1,
+                             emb_vec2, emb_vec_gate2):
     """Calculates the cosine similarity score between two embedding vectors.
 
     Args:
@@ -36,16 +45,14 @@ def get_emb_similarity_score(emb_vec1, emb_vec2):
     Returns:
         torch.Tensor: Cosine similarity score.
     """
+
+    gate = torch.min(emb_vec_gate1, emb_vec_gate2)
+
+    v1 = emb_vec1 * gate
+    v2 = emb_vec2 * gate
+
     # Cosine Similarity
-    norm1 = torch.norm(emb_vec1, p=2)
-    norm2 = torch.norm(emb_vec2, p=2)
-
-    unit_v1 = emb_vec1 / norm1
-    unit_v2 = emb_vec2 / norm2
-
-    score = torch.mm(torch.unsqueeze(unit_v1, 0), torch.unsqueeze(unit_v2, 0).T).squeeze()
-    
-    return score
+    return F.cosine_similarity(v1, v2, dim=0)
 
 def prepare_for_similarity_metric(feature1, feature2):
     """Prepares features from two images for metric calculation.
@@ -53,24 +60,23 @@ def prepare_for_similarity_metric(feature1, feature2):
     Calculates individual part similarity scores and combined visibility scores.
 
     Args:
-        feature1 (tuple): (v_scores, emb_vecs) for the first image.
-        feature2 (tuple): (v_scores, emb_vecs) for the second image.
+        feature1 (tuple): (v_scores, emb_vecs, emb_vec_gates) for the first image.
+        feature2 (tuple): (v_scores, emb_vecs, emb_vec_gates) for the second image.
 
     Returns:
         tuple: (v_scores, part_s_scores)
             v_scores (torch.Tensor): Minimum visibility score for each part across both images.
             part_s_scores (list[torch.Tensor]): Similarity score for each part.
     """
-    ft1_v_scores, ft1_emb_vecs = feature1
-    ft2_v_scores, ft2_emb_vecs = feature2
+    ft1_v_scores, ft1_emb_vecs, ft1_emb_vec_gates = feature1
+    ft2_v_scores, ft2_emb_vecs, ft2_emb_vec_gates = feature2
 
     part_s_scores = []
 
-    for emb_vec1, emb_vec2 in zip(ft1_emb_vecs, ft2_emb_vecs):
-        s_score = get_emb_similarity_score(emb_vec1, emb_vec2)
-
-        if s_score.isnan():
-            s_score = torch.tensor(-1.).view(s_score.shape).to(s_score.device)
+    for emb_vec1, emb_vec2, emb_vec_gate1, emb_vec_gate2 in zip(ft1_emb_vecs, ft2_emb_vecs,
+                                                                ft1_emb_vec_gates, ft2_emb_vec_gates):
+        s_score = get_emb_similarity_score(emb_vec1, emb_vec_gate1,
+                                           emb_vec2, emb_vec_gate2)
 
         part_s_scores.append(s_score)
     
