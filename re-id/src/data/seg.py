@@ -10,8 +10,9 @@ from pycocotools.mask import decode
 from src.utils.file_path import get_dataset_path, get_tmp_path
 from src.utils.segment_info import get_segment_groups
 import os
-from .transforms.LetterboxPad import LetterboxPad
+from .transforms.RandomShift import get_random_shift_params, shift_image
 from .transforms.RandomCrop import get_random_crop_params
+from .transforms.RandomErasing import get_random_erasing_params, fill_rectangle
 from .transforms.RandomHorizontalFlip import should_horizontal_flip
 from .transforms.RandomResolutionReduce import RandomResolutionReduce
 
@@ -44,56 +45,36 @@ def get_data_path():
         },
     }
 
+
 class SegTransform(nn.Module):
-    """Data augmentation and preprocessing for segmentation data.
-
-    Attributes:
-        generator (torch.Generator, optional): Random number generator.
-        random_crop (bool): Whether to apply random cropping.
-        random_horizontal_flip (bool): Whether to apply random horizontal flipping.
-        image_transform (transforms.Compose): Combined transforms for the image.
-        mask_transform (LetterboxPad): Transform for the segmentation masks.
-    """
     def __init__(self, image_resolution, generator=None,
-                 random_crop=True, random_horizontal_flip=True,
-                 random_resolution_reduce=True):
-        """Initializes SegTransform.
-
-        Args:
-            image_resolution (tuple[int, int]): Target (Height, Width).
-            generator (torch.Generator, optional): Random number generator. Defaults to None.
-            random_crop (bool, optional): Enable random cropping. Defaults to True.
-            random_horizontal_flip (bool, optional): Enable horizontal flip. Defaults to True.
-            random_resolution_reduce (bool, optional): Enable resolution reduction. Defaults to True.
-        """
+                 random_crop=True, random_shift=False,
+                 random_erasing=False, random_horizontal_flip=False,
+                 random_resolution_reduce=False):
         super().__init__()
         self.generator = generator
         self.random_crop = random_crop
+        self.random_shift = random_shift
+        self.random_erasing = random_erasing
         self.random_horizontal_flip = random_horizontal_flip
 
         t = []
 
-        t.append(LetterboxPad(target_size=image_resolution))
+        t.append(transforms.Resize(image_resolution,
+                                   interpolation=transforms.InterpolationMode.NEAREST))
 
         if random_resolution_reduce:
-            t.append(RandomResolutionReduce(target_size=image_resolution, generator=generator))
+            t.append(RandomResolutionReduce(
+                target_size=image_resolution, generator=generator))
 
         self.image_transform = transforms.Compose(t)
-        self.mask_transform = LetterboxPad(target_size=image_resolution,
-                                           interpolation=transforms.InterpolationMode.NEAREST)
+        self.mask_transform = transforms.Resize(image_resolution,
+                                                interpolation=transforms.InterpolationMode.NEAREST)
 
     def forward(self, image, masks):
-        """Applies transforms to an image and its corresponding masks.
-
-        Args:
-            image (torch.Tensor): Input image tensor.
-            masks (list[torch.Tensor]): List of segmentation mask tensors.
-
-        Returns:
-            tuple[torch.Tensor, list[torch.Tensor]]: Transformed image and masks.
-        """
         if self.random_crop:
-            do_crop, params = get_random_crop_params(image.size()[1:], generator=self.generator)
+            do_crop, params = get_random_crop_params(
+                image.size()[1:], generator=self.generator)
             if do_crop:
                 image = TF.crop(image, *params)
                 masks = map(lambda m: TF.crop(m, *params), masks)
@@ -101,6 +82,24 @@ class SegTransform(nn.Module):
         image = self.image_transform(image)
 
         masks = list(map(lambda m: self.mask_transform(m), masks))
+
+        if self.random_shift:
+            do_shift, params = get_random_shift_params(
+                generator=self.generator)
+            if do_shift:
+                padding, x_shift, y_shift = params
+                image = shift_image(image, padding, x_shift, y_shift)
+                masks = list(map(lambda m: shift_image(
+                    m, padding, x_shift, y_shift), masks))
+
+        if self.random_erasing:
+            do_erase, params = get_random_erasing_params(
+                image.size()[1], image.size()[2], generator=self.generator)
+            if do_erase:
+                x1, y1, h, w = params
+                image = fill_rectangle(image, x1, y1, h, w)
+                masks = list(map(lambda m: fill_rectangle(
+                    m, x1, y1, h, w, fill_value=0), masks))
 
         if self.random_horizontal_flip:
             do_flip = should_horizontal_flip(generator=self.generator)
@@ -110,25 +109,15 @@ class SegTransform(nn.Module):
 
         return image, masks
 
+
 def get_train_dataset(image_resolution,
                       seg_variant,
                       generator=None,
                       random_crop=True,
-                      random_horizontal_flip=True,
-                      random_resolution_reduce=True):
-    """Creates a COCODataset instance for training.
-
-    Args:
-        image_resolution (tuple): Target image resolution.
-        seg_variant (str): Segmentation variant.
-        generator (torch.Generator, optional): Random generator.
-        random_crop (bool, optional): Enable random cropping.
-        random_horizontal_flip (bool, optional): Enable horizontal flip.
-        random_resolution_reduce (bool, optional): Enable resolution reduction.
-
-    Returns:
-        COCODataset: Training dataset instance.
-    """
+                      random_shift=True,
+                      random_erasing=True,
+                      random_horizontal_flip=False,
+                      random_resolution_reduce=False):
     annotation_path = get_data_path()["train"]["annotation"]
     image_dir = get_data_path()["train"]["image_dir"]
     cache_dir = get_data_path()["train"]["cache_dir"]
@@ -137,30 +126,22 @@ def get_train_dataset(image_resolution,
     transform = SegTransform(image_resolution=image_resolution,
                              generator=generator,
                              random_crop=random_crop,
+                             random_shift=random_shift,
+                             random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)
     return COCODataset(seg_variant, transform, coco, image_dir,
                        cache_dir, image_resolution)
 
+
 def get_val_dataset(image_resolution,
                     seg_variant,
                     generator=None,
                     random_crop=True,
-                    random_horizontal_flip=True,
-                    random_resolution_reduce=True):
-    """Creates a COCODataset instance for validation.
-
-    Args:
-        image_resolution (tuple): Target image resolution.
-        seg_variant (str): Segmentation variant.
-        generator (torch.Generator, optional): Random generator.
-        random_crop (bool, optional): Enable random cropping.
-        random_horizontal_flip (bool, optional): Enable horizontal flip.
-        random_resolution_reduce (bool, optional): Enable resolution reduction.
-
-    Returns:
-        COCODataset: Validation dataset instance.
-    """
+                    random_shift=False,
+                    random_erasing=False,
+                    random_horizontal_flip=False,
+                    random_resolution_reduce=False):
     annotation_path = get_data_path()["val"]["annotation"]
     image_dir = get_data_path()["val"]["image_dir"]
     cache_dir = get_data_path()["val"]["cache_dir"]
@@ -169,30 +150,22 @@ def get_val_dataset(image_resolution,
     transform = SegTransform(image_resolution=image_resolution,
                              generator=generator,
                              random_crop=random_crop,
+                             random_shift=random_shift,
+                             random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)
     return COCODataset(seg_variant, transform, coco, image_dir,
                        cache_dir, image_resolution)
 
+
 def get_test_dataset(image_resolution,
                      seg_variant,
                      generator=None,
                      random_crop=True,
-                     random_horizontal_flip=True,
-                     random_resolution_reduce=True):
-    """Creates a COCODataset instance for testing.
-
-    Args:
-        image_resolution (tuple): Target image resolution.
-        seg_variant (str): Segmentation variant.
-        generator (torch.Generator, optional): Random generator.
-        random_crop (bool, optional): Enable random cropping.
-        random_horizontal_flip (bool, optional): Enable horizontal flip.
-        random_resolution_reduce (bool, optional): Enable resolution reduction.
-
-    Returns:
-        COCODataset: Testing dataset instance.
-    """
+                     random_shift=False,
+                     random_horizontal_flip=False,
+                     random_erasing=False,
+                     random_resolution_reduce=False):
     annotation_path = get_data_path()["test"]["annotation"]
     image_dir = get_data_path()["test"]["image_dir"]
     cache_dir = get_data_path()["test"]["cache_dir"]
@@ -201,6 +174,8 @@ def get_test_dataset(image_resolution,
     transform = SegTransform(image_resolution=image_resolution,
                              generator=generator,
                              random_crop=random_crop,
+                             random_shift=random_shift,
+                             random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)
     return COCODataset(seg_variant, transform, coco, image_dir,
@@ -208,31 +183,8 @@ def get_test_dataset(image_resolution,
 
 
 class COCODataset(dataset.Dataset):
-    """Dataset class for COCO with DensePose annotations.
-
-    Attributes:
-        transform (SegTransform): Transforms to apply.
-        to_tensor (transforms.ToTensor): Convert image to tensor.
-        loader (Callable): Image loader function.
-        coco (COCO): COCO API instance.
-        image_dir (str): Directory containing images.
-        cache_dir (str): Directory for caching processed images.
-        image_resolution (tuple): Target image resolution.
-        segment_groups (list): List of segment group definitions.
-        anns (list[dict]): List of filtered annotations.
-    """
     def __init__(self, seg_variant, transform, coco, image_dir,
                  cache_dir, image_resolution):
-        """Initializes COCODataset.
-
-        Args:
-            seg_variant (str): Segmentation variant name.
-            transform (SegTransform): Transform module.
-            coco (COCO): COCO API instance.
-            image_dir (str): Image directory.
-            cache_dir (str): Cache directory.
-            image_resolution (tuple): Target resolution (H, W).
-        """
         self.transform = transform
         self.to_tensor = transforms.ToTensor()
         self.loader = default_loader
@@ -243,21 +195,16 @@ class COCODataset(dataset.Dataset):
 
         self.segment_groups = get_segment_groups(seg_variant)
 
-        image_ids = self.coco.getImgIds(catIds=self.coco.getCatIds(catNms=['person']))
+        image_ids = self.coco.getImgIds(
+            catIds=self.coco.getCatIds(catNms=['person']))
 
-        ann_ids = coco.getAnnIds(imgIds=image_ids, iscrowd=False, catIds=self.coco.getCatIds(catNms=['person']))
+        ann_ids = coco.getAnnIds(
+            imgIds=image_ids, iscrowd=False, catIds=self.coco.getCatIds(catNms=['person']))
 
-        self.anns = [ann for ann in self.coco.loadAnns(ann_ids) if self.filter_ann(ann)]
+        self.anns = [ann for ann in self.coco.loadAnns(
+            ann_ids) if self.filter_ann(ann)]
 
     def _getitem(self, ann):
-        """Loads and processes a single annotation.
-
-        Args:
-            ann (dict): COCO annotation dictionary.
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]: Image tensor and segmentation mask tensor.
-        """
         [x_start, y_start, width, height] = ann["bbox"]
 
         img_cache_file = f"{self.cache_dir}/{ann['id']}_img.pt"
@@ -269,7 +216,8 @@ class COCODataset(dataset.Dataset):
             image_info = self.coco.loadImgs(image_id)[0]
             image_path = f"{self.image_dir}/{image_info['file_name']}"
             image = self.loader(image_path)
-            img = image.crop((x_start, y_start, x_start + width, y_start + height))
+            img = image.crop(
+                (x_start, y_start, x_start + width, y_start + height))
             img = self.to_tensor(img)
 
             os.makedirs(self.cache_dir, exist_ok=True)
@@ -287,7 +235,8 @@ class COCODataset(dataset.Dataset):
                                      size=(int(height), int(width)),
                                      mode="nearest").squeeze(0)
             else:
-                mask = torch.zeros(self.image_resolution, dtype=torch.float).unsqueeze(0)
+                mask = torch.zeros(self.image_resolution,
+                                   dtype=torch.float).unsqueeze(0)
             masks.append(mask)
 
         img, masks = self.transform(img, masks)
@@ -318,14 +267,6 @@ class COCODataset(dataset.Dataset):
         return img, seg
 
     def __getitem__(self, index):
-        """Returns the item at the given index.
-
-        Args:
-            index (int or list): Index or list of indices.
-
-        Returns:
-            tuple or list: Data items.
-        """
         if isinstance(index, list):
             return [self.__getitem__(i) for i in index]
         ann = self.anns[index]
@@ -333,25 +274,11 @@ class COCODataset(dataset.Dataset):
             return [self._getitem(a) for a in ann]
         return self._getitem(ann)
 
-
     def __len__(self):
-        """Returns the total number of items in the dataset.
-
-        Returns:
-            int: Number of annotations.
-        """
         return len(self.anns)
 
     @staticmethod
     def filter_ann(ann):
-        """Filters out annotations that are too small or lack DensePose masks.
-
-        Args:
-            ann (dict): COCO annotation.
-
-        Returns:
-            bool: True if the annotation is valid, False otherwise.
-        """
         [_, _, width, height] = ann["bbox"]
         if width < 25 or height < 75:
             return False

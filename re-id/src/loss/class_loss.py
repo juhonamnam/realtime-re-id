@@ -22,7 +22,7 @@ class ClassLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss value.
         """
-        CE = nn.CrossEntropyLoss()
+        CE = nn.CrossEntropyLoss(label_smoothing=0.1)
 
         class_loss = CE(class_logits, id_labels)
 

@@ -1,72 +1,73 @@
-import torch.nn as nn
-
 from .common import *
-from .product import get_product_similarity_score
-from .weighted_mean import get_weighted_mean_similarity_score
-from .weighted_geometric_mean import get_weighted_geometric_mean_similarity_score
-from .minimum import get_minimum_similarity_score
+from .dist_sum import get_dist_sum
+from .dist_mean import get_dist_mean
+from .dist_max import get_dist_max
+from .concat_dist import get_concat_dist
 
-__all__ = ['SimilarityMetric']
+__all__ = ['DistanceMetric']
 
-SIMILARITY_METRIC_REGISTRY = {
-    'product': get_product_similarity_score,
-    'weighted_mean': get_weighted_mean_similarity_score,
-    'weighted_geometric_mean': get_weighted_geometric_mean_similarity_score,
-    'minimum': get_minimum_similarity_score,
+DISTANCE_METRIC_REGISTRY = {
+    'concat_dist': get_concat_dist,
+    'dist_mean': get_dist_mean,
+    'dist_sum': get_dist_sum,
+    'dist_max': get_dist_max,
 }
 
-SIMILARITY_METRICS = list(SIMILARITY_METRIC_REGISTRY.keys())
+DISTANCE_METRICS = list(DISTANCE_METRIC_REGISTRY.keys())
 
-class SimilarityMetric():
-    similarity_metrics = SIMILARITY_METRICS
-    metric_num = len(similarity_metrics)
-    def __init__(self, default_method='product', default_part_thresholds=0.5):
-        super(SimilarityMetric, self).__init__()
-        if default_method in SIMILARITY_METRIC_REGISTRY:
-            self.default_similarity_func = SIMILARITY_METRIC_REGISTRY[default_method]
+
+class DistanceMetric():
+    distance_metrics = DISTANCE_METRICS
+    metric_num = len(distance_metrics)
+
+    def __init__(self, default_metric='concat_dist'):
+        super(DistanceMetric, self).__init__()
+        if default_metric in DISTANCE_METRIC_REGISTRY:
+            self.default_metric = default_metric
         else:
-            raise ValueError(f"Unsupported similarity metric method: {default_method}")
-        self.default_part_thresholds = default_part_thresholds
+            raise ValueError(
+                f"Unsupported distance metric method: {default_metric}")
 
         self.metric_list = []
         self.metric_dict = {}
-        for method in self.similarity_metrics:
-            self.metric_list.append(SIMILARITY_METRIC_REGISTRY[method])
-            self.metric_dict[method] = SIMILARITY_METRIC_REGISTRY[method]
+        for method in self.distance_metrics:
+            self.metric_list.append(DISTANCE_METRIC_REGISTRY[method])
+            self.metric_dict[method] = DISTANCE_METRIC_REGISTRY[method]
 
-    def default(self, feature1, feature2, part_thresholds=None, return_part_scores=False):
-        if part_thresholds is None:
-            part_thresholds = self.default_part_thresholds
-        v_scores, part_s_scores = prepare_for_similarity_metric(feature1, feature2)
-        
-        total_s_score = self.default_similarity_func(v_scores, part_s_scores, part_thresholds)
-        if return_part_scores:
-            return total_s_score, part_s_scores
-        return total_s_score
+    def default(self, feature1, feature2, return_part_distances=False, return_v_scores=False):
+        return self.metric(self.default_metric, feature1, feature2, return_part_distances=return_part_distances,
+                           return_v_scores=return_v_scores)
 
-    def metric(self, metric_name, feature1, feature2, part_thresholds=None):
-        if part_thresholds is None:
-            part_thresholds = self.default_part_thresholds
+    def metric(self, metric_name, feature1, feature2, return_part_distances=False, return_v_scores=False):
         if metric_name not in self.metric_dict:
-            raise ValueError(f"Unsupported similarity metric method: {metric_name}")
-        similarity_func = self.metric_dict[metric_name]
-        v_scores, part_s_scores = prepare_for_similarity_metric(feature1, feature2)
-        total_s_score = similarity_func(v_scores, part_s_scores, part_thresholds)
-        return total_s_score
+            raise ValueError(
+                f"Unsupported distance metric method: {metric_name}")
+        distance_func = self.metric_dict[metric_name]
+        v_scores, part_distances = prepare_for_distance_metric(
+            feature1, feature2)
+        final_distance = distance_func(v_scores, part_distances)
 
-    def all(self, feature1, feature2, part_thresholds=None):
-        if part_thresholds is None:
-            part_thresholds = self.default_part_thresholds
-        v_scores, part_s_scores = prepare_for_similarity_metric(feature1, feature2)
+        returning = [final_distance]
 
-        total_s_scores = []
+        if return_part_distances:
+            returning.append(part_distances)
+        if return_v_scores:
+            returning.append(v_scores)
+        return returning if len(returning) > 1 else returning[0]
+
+    def all(self, feature1, feature2):
+        v_scores, part_distances = prepare_for_distance_metric(
+            feature1, feature2)
+
+        final_distances = []
 
         for metric in self.metric_list:
-            total_s_score = metric(v_scores, part_s_scores, part_thresholds)
-                
-            total_s_scores.append(total_s_score)
+            final_distance = metric(v_scores, part_distances)
 
-        return total_s_scores, part_s_scores
+            final_distances.append(final_distance)
 
-    def __call__(self, feature1, feature2, part_thresholds=None, return_part_scores=False):
-        return self.default(feature1, feature2, part_thresholds, return_part_scores)
+        return final_distances, part_distances
+
+    def __call__(self, feature1, feature2, return_part_distances=False, return_v_scores=False):
+        return self.default(feature1, feature2, return_part_distances=return_part_distances,
+                            return_v_scores=return_v_scores)
