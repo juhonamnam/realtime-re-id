@@ -1,16 +1,16 @@
 from .common import *
-from .dist_sum import get_dist_sum
-from .dist_mean import get_dist_mean
-from .dist_max import get_dist_max
-from .concat_dist import get_concat_dist
+from .dist_func.dist_sum import DistSum
+from .dist_func.dist_mean import DistMean
+from .dist_func.dist_max import DistMax
+from .dist_func.concat_dist import ConcatDist
 
 __all__ = ['DistanceMetric']
 
 DISTANCE_METRIC_REGISTRY = {
-    'concat_dist': get_concat_dist,
-    'dist_mean': get_dist_mean,
-    'dist_sum': get_dist_sum,
-    'dist_max': get_dist_max,
+    'concat_dist': ConcatDist(),
+    'dist_mean': DistMean(),
+    'dist_sum': DistSum(),
+    'dist_max': DistMax(),
 }
 
 DISTANCE_METRICS = list(DISTANCE_METRIC_REGISTRY.keys())
@@ -34,18 +34,24 @@ class DistanceMetric():
             self.metric_list.append(DISTANCE_METRIC_REGISTRY[method])
             self.metric_dict[method] = DISTANCE_METRIC_REGISTRY[method]
 
-    def default(self, feature1, feature2, return_part_distances=False, return_v_scores=False):
-        return self.metric(self.default_metric, feature1, feature2, return_part_distances=return_part_distances,
-                           return_v_scores=return_v_scores)
+    def default(self, feature1, feature2, *args, **kwargs):
+        return self.metric(self.default_metric, feature1, feature2, *args, **kwargs)
 
-    def metric(self, metric_name, feature1, feature2, return_part_distances=False, return_v_scores=False):
+    def metric(self, metric_name, feature1, feature2, return_part_distances=False, return_v_scores=False, cross_batch=False):
         if metric_name not in self.metric_dict:
             raise ValueError(
                 f"Unsupported distance metric method: {metric_name}")
         distance_func = self.metric_dict[metric_name]
-        v_scores, part_distances = prepare_for_distance_metric(
-            feature1, feature2)
-        final_distance = distance_func(v_scores, part_distances)
+
+        if cross_batch:
+            v_scores, part_distances = prepare_for_distance_metric_cross_batch(
+                feature1, feature2)
+            final_distance = distance_func.cross_batch(
+                v_scores, part_distances)
+        else:
+            v_scores, part_distances = prepare_for_distance_metric(
+                feature1, feature2)
+            final_distance = distance_func.single(v_scores, part_distances)
 
         returning = [final_distance]
 
@@ -55,19 +61,25 @@ class DistanceMetric():
             returning.append(v_scores)
         return returning if len(returning) > 1 else returning[0]
 
-    def all(self, feature1, feature2):
-        v_scores, part_distances = prepare_for_distance_metric(
-            feature1, feature2)
+    def all(self, feature1, feature2, cross_batch=False):
+        if cross_batch:
+            v_scores, part_distances = prepare_for_distance_metric_cross_batch(
+                feature1, feature2)
+        else:
+            v_scores, part_distances = prepare_for_distance_metric(
+                feature1, feature2)
 
         final_distances = []
 
         for metric in self.metric_list:
-            final_distance = metric(v_scores, part_distances)
+            if cross_batch:
+                final_distance = metric.cross_batch(v_scores, part_distances)
+            else:
+                final_distance = metric.single(v_scores, part_distances)
 
             final_distances.append(final_distance)
 
         return final_distances, part_distances
 
-    def __call__(self, feature1, feature2, return_part_distances=False, return_v_scores=False):
-        return self.default(feature1, feature2, return_part_distances=return_part_distances,
-                            return_v_scores=return_v_scores)
+    def __call__(self, feature1, feature2, *args, **kwargs):
+        return self.default(feature1, feature2, *args, **kwargs)
