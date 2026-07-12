@@ -6,9 +6,9 @@ class ReIDDataset(dataset.Dataset):
     """Abstract base class for person re-identification datasets."""
 
     @abstractmethod
-    def __init__(self, transform, stage, return_camera_id=False):
+    def __init__(self, transform, stage, iterate_camera_id=False):
         self.transform = transform
-        self.return_camera_id = return_camera_id
+        self.iterate_camera_id = iterate_camera_id
 
     @abstractmethod
     def get_indices_by_id(self, id):
@@ -38,7 +38,7 @@ class ReIDDataset(dataset.Dataset):
 
         image = self.transform(image)
 
-        if self.return_camera_id:
+        if self.iterate_camera_id:
             camera_id = self.get_camera_by_index(index)
             return image, id_label, camera_id
 

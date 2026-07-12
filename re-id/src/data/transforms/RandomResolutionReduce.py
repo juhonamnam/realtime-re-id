@@ -3,7 +3,7 @@ from torch import nn
 from torchvision.transforms import functional as F
 
 
-def get_random_resolution_reduce_params(target_size, p=0.3, min_ratio=0.25, generator=None):
+def get_random_resolution_reduce_params(target_size, p=0.2, min_ratio=0.5, generator=None):
     if generator:
         chance = torch.rand(1, generator=generator, device=generator.device)
     else:
@@ -45,15 +45,15 @@ class RandomResolutionReduce(nn.Module):
         generator (torch.Generator, optional): Random number generator.
     """
 
-    def __init__(self, target_size, p=0.3, min_ratio=0.25,
+    def __init__(self, target_size, p=0.2, min_ratio=0.5,
                  interpolation=F.InterpolationMode.NEAREST,
                  generator=None):
         """Initializes RandomResolutionReduce.
 
         Args:
             target_size (tuple): Target (Height, Width).
-            p (float, optional): Probability. Defaults to 0.3.
-            min_ratio (float, optional): Min scale ratio. Defaults to 0.25.
+            p (float, optional): Probability. Defaults to 0.2.
+            min_ratio (float, optional): Min scale ratio. Defaults to 0.5.
             interpolation (F.InterpolationMode, optional): Interpolation method. Defaults to NEAREST.
             generator (torch.Generator, optional): Random generator. Defaults to None.
         """

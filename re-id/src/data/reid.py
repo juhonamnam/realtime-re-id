@@ -5,6 +5,7 @@ from .transforms.RandomShift import RandomShift
 from .transforms.RandomErasing import RandomErasing
 from .transforms.RandomHorizontalFlip import RandomHorizontalFlip
 from .transforms.RandomCrop import RandomCrop
+from .transforms.LetterboxPad import LetterboxPad
 from .transforms.RandomResolutionReduce import RandomResolutionReduce
 
 from .reid_datasets.market_1501 import Market1501Dataset
@@ -24,8 +25,8 @@ REID_DATASETS = {
 class ReIDTransform(nn.Module):
 
     def __init__(self, image_resolution, generator, random_crop,
-                 random_shift, random_horizontal_flip, random_erasing,
-                 random_resolution_reduce):
+                 random_shift, random_fill, random_horizontal_flip,
+                 random_erasing, random_resolution_reduce):
         super().__init__()
 
         t = []
@@ -41,8 +42,8 @@ class ReIDTransform(nn.Module):
         if random_erasing:
             t.append(RandomErasing(generator=generator))
 
-        t.append(transforms.Resize(image_resolution,
-                 interpolation=transforms.InterpolationMode.NEAREST))
+        t.append(LetterboxPad(size=image_resolution,
+                 random_fill=random_fill, generator=generator))
 
         if random_resolution_reduce:
             t.append(RandomResolutionReduce(
@@ -69,30 +70,28 @@ def get_dataset(dataset_name,
                 image_resolution,
                 data_stage,
                 generator=None,
+                no_augment=False,
                 random_crop=False,
                 random_shift=False,
+                random_fill=True,
                 random_horizontal_flip=False,
                 random_erasing=False,
-                random_resolution_reduce=True):
-    """Helper function to create a REIDDataset instance.
+                random_resolution_reduce=True,
+                iterate_camera_id=False):
 
-    Args:
-        dataset_name (str): Name of the dataset ('market1501', 'nia')
-        image_resolution (tuple): Target resolution.
-        data_stage (str): Split name ('train', 'val', or 'test').
-        generator (torch.Generator, optional): Random generator.
-        random_crop (bool, optional): Enable cropping.
-        random_horizontal_flip (bool, optional): Enable flipping.
-        random_erasing (bool, optional): Enable erasing.
-        random_resolution_reduce (bool, optional): Enable resolution reduction.
+    if no_augment:
+        random_crop = False
+        random_shift = False
+        random_fill = False
+        random_horizontal_flip = False
+        random_erasing = False
+        random_resolution_reduce = False
 
-    Returns:
-        REIDDataset: The created dataset instance.
-    """
     transform = ReIDTransform(image_resolution=image_resolution,
                               generator=generator,
                               random_crop=random_crop,
                               random_shift=random_shift,
+                              random_fill=random_fill,
                               random_horizontal_flip=random_horizontal_flip,
                               random_erasing=random_erasing,
                               random_resolution_reduce=random_resolution_reduce)
@@ -103,4 +102,5 @@ def get_dataset(dataset_name,
             f"Unsupported dataset: {dataset_name}. Supported datasets: {list(REID_DATASETS.keys())}")
 
     return dataset(transform=transform,
-                   stage=data_stage)
+                   stage=data_stage,
+                   iterate_camera_id=iterate_camera_id)
