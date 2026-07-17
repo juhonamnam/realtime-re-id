@@ -17,40 +17,46 @@ MASK_LABELS = {
     13: "Head",
 }
 
+
 def get_segment_groups(variant):
-    """Return the segmentation layout used for a given model variant.
+    if "f" in variant:
+        variant = variant.replace("f", "")
 
-    Each group describes one output channel in the segmentation target/model:
-    normalized RGBA color for visualization, the DensePose mask indices merged
-    into that channel, whether the channel is synthesized as background, and a
-    human-readable name.
-
-    Variant names follow the number of non-background attention regions used by
-    the model: "2a" -> 2 regions, "4a" -> 4 regions, "5a" -> 5 regions.
-    """
-    if variant == "2a":
+    if variant == "2p":
         return [{"color": [0/255, 12/255, 55/255, 0.5],
                  "dp_mask_indices": [],
                  "is_background": True,
                  "name": "background"},
-                # Torso and both arms are treated as one upper-body region.
                 {"color": [47/255, 150/255, 224/255, 0.5],
                  "dp_mask_indices": [0, 1, 2, 9, 10, 11, 12],
                  "is_background": False,
-                 "name": "upper body",
-                 "default_threshold": 0.6},
-                # All leg and foot parts are collapsed into one lower-body region.
+                 "name": "upper body"},
                 {"color": [28/255, 219/255, 169/255, 0.5],
                  "dp_mask_indices": [3, 4, 5, 6, 7, 8],
                  "is_background": False,
-                 "name": "lower body",
-                 "default_threshold": 0.6}]
-    if variant == "4a":
+                 "name": "lower body"}]
+    if variant == "3p":
         return [{"color": [0/255, 12/255, 55/255, 0.5],
                  "dp_mask_indices": [],
                  "is_background": True,
                  "name": "background"},
-                # Torso is isolated so the model can attend to the central body.
+                {"color": [255/255, 165/255, 0/255, 0.5],
+                 "dp_mask_indices": [13],
+                 "is_background": False,
+                 "name": "head"},
+                {"color": [47/255, 150/255, 224/255, 0.5],
+                 "dp_mask_indices": [0, 1, 2, 9, 10, 11, 12],
+                 "is_background": False,
+                 "name": "upper body"},
+                {"color": [28/255, 219/255, 169/255, 0.5],
+                 "dp_mask_indices": [3, 4, 5, 6, 7, 8],
+                 "is_background": False,
+                 "name": "lower body"}]
+    if variant == "4p":
+        return [{"color": [0/255, 12/255, 55/255, 0.5],
+                 "dp_mask_indices": [],
+                 "is_background": True,
+                 "name": "background"},
                 {"color": [47/255, 150/255, 224/255, 0.5],
                  "dp_mask_indices": [0],
                  "is_background": False,
@@ -60,19 +66,18 @@ def get_segment_groups(variant):
                  "is_background": False,
                  "name": "arm"},
                 {"color": [28/255, 219/255, 169/255, 0.5],
-                 "dp_mask_indices": [5, 6],
+                 "dp_mask_indices": [5, 6, 7, 8],
                  "is_background": False,
-                 "name": "upper leg"},
+                 "name": "leg"},
                 {"color": [212/255, 24/255, 100/255, 0.5],
-                 "dp_mask_indices": [3, 4, 7, 8],
+                 "dp_mask_indices": [3, 4],
                  "is_background": False,
-                 "name": "lower leg"}]
-    if variant == "5a":
+                 "name": "foot"}]
+    if variant == "5p":
         return [{"color": [0/255, 12/255, 55/255, 0.5],
                  "dp_mask_indices": [],
                  "is_background": True,
                  "name": "background"},
-                # "5a" adds a dedicated head region on top of the "4a" split.
                 {"color": [255/255, 165/255, 0/255, 0.5],
                  "dp_mask_indices": [13],
                  "is_background": False,
@@ -86,28 +91,26 @@ def get_segment_groups(variant):
                  "is_background": False,
                  "name": "arm"},
                 {"color": [28/255, 219/255, 169/255, 0.5],
-                 "dp_mask_indices": [5, 6],
+                 "dp_mask_indices": [5, 6, 7, 8],
                  "is_background": False,
-                 "name": "upper leg"},
+                 "name": "leg"},
                 {"color": [212/255, 24/255, 100/255, 0.5],
-                 "dp_mask_indices": [3, 4, 7, 8],
+                 "dp_mask_indices": [3, 4],
                  "is_background": False,
-                 "name": "lower leg"},
-                 ]
+                 "name": "foot"}]
 
     raise ValueError(f"Unknown variant: {variant}")
 
+
 def get_attention_groups(variant):
-    """Returns foreground groups only, annotated with their segmentation index.
+    segment_groups = get_segment_groups(variant)
 
-    The re-identification model uses these entries to build one attention head
-    per non-background segmentation channel while keeping the original channel
-    index for mask selection.
-
-    Args:
-        variant (str): Variant name.
-
-    Returns:
-        list[dict]: List of attention group configurations.
-    """
-    return [{**seg, "seg_idx": idx} for idx, seg in enumerate(get_segment_groups(variant)) if not seg["is_background"]]
+    attention_groups = []
+    for idx, seg in enumerate(segment_groups):
+        if not seg["is_background"]:
+            attention_groups.append(
+                {**seg, "seg_idx": idx, "is_foreground": False})
+    if "f" in variant:
+        attention_groups.append(
+            {"is_background": False, "name": "foreground", "seg_idx": -1, "is_foreground": True})
+    return attention_groups

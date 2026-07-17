@@ -16,31 +16,46 @@ self.onmessage = async (e: MessageEvent) => {
 
   switch (type) {
     case "load": {
-      const { pdModelPath, feModelPath } = payload
+      const { pdModelPath, feModelPath, feModelExternalData } = payload
       try {
-        if (pdSession) pdSession.release()
-        if (feSession) feSession.release()
-
-        const promises = []
-
         if (currentPdModelPath !== pdModelPath) {
+          try {
+            if (pdSession) await pdSession.release()
+          } catch (error) {
+            console.warn("Failed to release PD session:", error)
+          }
+
+          pdSession = null
           currentPdModelPath = pdModelPath
-          promises.push(
-            ort.InferenceSession.create(pdModelPath).then((session) => {
-              pdSession = session
-            }),
-          )
-        }
-        if (currentFeModelPath !== feModelPath) {
-          currentFeModelPath = feModelPath
-          promises.push(
-            ort.InferenceSession.create(feModelPath).then((session) => {
-              feSession = session
-            }),
-          )
+
+          try {
+            pdSession = await ort.InferenceSession.create(pdModelPath)
+          } catch (error) {
+            currentPdModelPath = null
+            throw error
+          }
         }
 
-        await Promise.all(promises)
+        if (currentFeModelPath !== feModelPath) {
+          try {
+            if (feSession) await feSession.release()
+          } catch (error) {
+            console.warn("Failed to release FE session:", error)
+          }
+
+          feSession = null
+          currentFeModelPath = feModelPath
+
+          try {
+            feSession = await ort.InferenceSession.create(feModelPath, {
+              externalData: feModelExternalData,
+            })
+          } catch (error) {
+            currentFeModelPath = null
+            throw error
+          }
+        }
+
         self.postMessage({ type: "load", payload: { success: true } })
       } catch (error) {
         self.postMessage({

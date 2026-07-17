@@ -13,7 +13,7 @@ class TripletLoss(nn.Module):
         margin (float): The margin between positive and negative distances.
         ranking_loss (nn.MarginRankingLoss): Underlying ranking loss module.
     """
-    def __init__(self, margin=0.3, topk=3):
+    def __init__(self, margin=0.3, topk=1):
         """Initializes TripletLoss.
 
         Args:
@@ -25,32 +25,26 @@ class TripletLoss(nn.Module):
         self.topk = topk
         self.ranking_loss = nn.MarginRankingLoss(margin=margin)
 
-    def forward(self, weights, vectors, targets):
+    def forward(self, vectors, targets):
         """Calculates the triplet loss.
 
         Args:
-            weights (torch.Tensor): Visibility weights for each embedding of shape (Batch, VectorNum).
             vectors (torch.Tensor): Embedding vectors of shape (Batch, VectorNum, VectorLen).
             targets (torch.Tensor): Identity labels for the batch of shape (Batch).
 
         Returns:
             torch.Tensor: Scalar loss value.
         """
-        weights = weights.detach()
-        batch, vector_num, _ = vectors.shape
+        batch = vectors.size(0)
 
-        # Cosine Distance
-        unit_vectors = vectors / vectors.norm(p=2,
-                                              dim=-1,
-                                              keepdim=True).clamp(min=1e-12)           # batch x vector_num x vector_len
-        cosine_similarity = torch.einsum("abf,cbf->bca", unit_vectors, unit_vectors)   # vector_num x batch x batch
-        dist = 1 - cosine_similarity                                                   # vector_num x batch x batch
+        # # Part-wise L2 Distance
+        # vectors = vectors.permute(1, 0, 2)                                             # vector_num x batch x vector_len
+        # dist = torch.cdist(vectors, vectors, p=2)                                      # vector_num x batch x batch
+        # dist = dist.mean(dim=0)                                                        # batch x batch
 
-        dist_w = weights.t().unsqueeze(1).expand(vector_num, batch, batch)             # vector_num x batch x batch
-        dist_w = torch.min(dist_w, dist_w.permute(0, 2, 1))                            # vector_num x batch x batch
-        dist_w /= dist_w.sum(dim=0, keepdim=True).clamp(min=1e-12)                     # vector_num x batch x batch
-
-        dist = (dist * dist_w).sum(dim=0)                                              # batch x batch
+        # Concat L2 Distance
+        vectors = vectors.flatten(1, 2)                                                  # batch x (vector_num * vector_len)
+        dist = torch.cdist(vectors, vectors, p=2)                                        # batch x batch
 
         mask = targets.expand(batch, batch).eq(targets.expand(batch, batch).t())       # batch x batch
 

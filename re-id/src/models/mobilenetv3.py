@@ -4,6 +4,8 @@ from functools import partial
 from typing import Callable, List, Optional
 from src.utils.file_path import get_pretrained_file_path
 from torchvision.ops.misc import Conv2dNormActivation, SqueezeExcitation
+from torchvision.ops import FeaturePyramidNetwork
+from collections import OrderedDict
 
 
 __all__ = ["MobilenetV3"]
@@ -142,7 +144,7 @@ class Features(nn.Sequential):
         fpn_factors (list): Factors for FPN construction.
         downsample_ratio (int): Cumulative downsampling ratio.
     """
-    def __init__(self, variant="small", pretrained=False, use_fpn=False):
+    def __init__(self, variant="small", pretrained=False, use_fpn=False, ch_out=None):
         """Initializes the Features sequence.
 
         Args:
@@ -178,7 +180,7 @@ class Features(nn.Sequential):
             ]
         elif variant == "small":
             self.irb_configs = [
-                {"input_ch": 16, "kernel": 3, "expanded_ch": 16,  "out_ch": 16, "use_se": False,  "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": True},
+                {"input_ch": 16, "kernel": 3, "expanded_ch": 16,  "out_ch": 16, "use_se": True,  "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": True},
                 {"input_ch": 16, "kernel": 3, "expanded_ch": 72,  "out_ch": 24, "use_se": False, "use_hs": False, "stride": 2, "dilation": 1, "fpn_layer": False},
                 {"input_ch": 24, "kernel": 3, "expanded_ch": 88,  "out_ch": 24, "use_se": False, "use_hs": False, "stride": 1, "dilation": 1, "fpn_layer": True},
                 {"input_ch": 24, "kernel": 5, "expanded_ch": 96,  "out_ch": 40, "use_se": True,  "use_hs": True,  "stride": 2, "dilation": 1, "fpn_layer": False},
@@ -194,7 +196,10 @@ class Features(nn.Sequential):
         else:
             raise Exception(f"Invalid variant {variant}")
 
-        self.last_ch_out = self.irb_configs[-1]["out_ch"] * 6
+        if ch_out is not None:
+            self.last_ch_out = ch_out
+        else:
+            self.last_ch_out = self.irb_configs[-1]["out_ch"] * 6
 
         if self.use_fpn:
             self.fpn_factors = []
@@ -257,8 +262,9 @@ class Features(nn.Sequential):
         if pretrained:
             try:
                 self.load_state_dict(torch.load(get_pretrained_file_path(f"{self.model_name}.pt")))
-            except:
-                print(f"Failed to load pretrained weight")
+            except Exception as e:
+
+                print(f"Failed to load pretrained weight: {e}")
 
     def forward(self, x):
         """Forward pass of the Features sequence.
@@ -282,133 +288,6 @@ class Features(nn.Sequential):
         else:
             return super().forward(x)
 
-
-class FPN(nn.Module):
-    """Feature Pyramid Network (FPN) implementation.
-
-    Attributes:
-        local_feat_layers (int): Number of lower layers to use for local features.
-        out_ch (int): Number of channels in the output feature maps.
-        local_conv1x1 (nn.ModuleList): 1x1 convolutions for local feature branches.
-        local_conv3x3 (nn.ModuleList): 3x3 convolutions for local feature fusion.
-        local_upsamples (list): Upsampling layers for local feature branches.
-        fused_conv1x1 (nn.ModuleList): 1x1 convolutions for all feature branches.
-        fused_conv3x3 (nn.ModuleList): 3x3 convolutions for global feature fusion.
-        fused_upsamples (list): Upsampling layers for global feature branches.
-    """
-    def __init__(self, fpn_factors, out_ch=None, local_feat_layers=2):
-        """Initializes the FPN module.
-
-        Args:
-            fpn_factors (list): List of (channels, downsample_factor) for each input feature map.
-            out_ch (int, optional): Number of output channels. Defaults to the minimum input channels.
-            local_feat_layers (int, optional): Number of layers to use for local features. Defaults to 2.
-        """
-        super().__init__()
-        self.local_feat_layers = local_feat_layers
-
-        if out_ch is None:
-            for f in fpn_factors:
-                if out_ch is None:
-                    out_ch = f[0]
-                else:
-                    out_ch = out_ch if out_ch <= f[0] else f[0]
-
-        self.out_ch = out_ch
-
-        self.local_conv1x1 = nn.ModuleList()
-        self.local_upsamples = []
-        self.local_conv3x3 = nn.ModuleList()
-
-        for i in range(local_feat_layers):
-            f = fpn_factors[i]
-            self.local_conv1x1.append(Conv2dNormActivation(f[0],
-                                                           out_ch,
-                                                           kernel_size=1,
-                                                           stride=1,
-                                                           activation_layer=nn.Hardswish))
-
-        for i in range(local_feat_layers - 1, 0, -1):
-            h = fpn_factors[i]
-            l = fpn_factors[i-1]
-            self.local_conv3x3.append(Conv2dNormActivation(out_ch,
-                                                           out_ch,
-                                                           kernel_size=3,
-                                                           stride=1,
-                                                           activation_layer=nn.Hardswish))
-            scale_factor = h[1] // l[1]
-            self.local_upsamples.append(nn.Upsample(scale_factor=scale_factor, mode="nearest"))
-
-        self.fused_conv1x1 = nn.ModuleList()
-        self.fused_upsamples = []
-        self.fused_conv3x3 = nn.ModuleList()
-
-        for f in fpn_factors:
-            self.fused_conv1x1.append(Conv2dNormActivation(f[0],
-                                                           out_ch,
-                                                           kernel_size=1,
-                                                           stride=1,
-                                                           activation_layer=nn.Hardswish))
-        for i in range(len(fpn_factors) - 1, 0, -1):
-            h = fpn_factors[i]
-            l = fpn_factors[i-1]
-            self.fused_conv3x3.append(Conv2dNormActivation(out_ch,
-                                                           out_ch,
-                                                           kernel_size=3,
-                                                           stride=1,
-                                                           activation_layer=nn.Hardswish))
-            scale_factor = h[1] // l[1]
-            self.fused_upsamples.append(nn.Upsample(scale_factor=scale_factor, mode="nearest"))
-
-    def forward(self, fpn_input):
-        """Forward pass of the FPN.
-
-        Args:
-            fpn_input (list[torch.Tensor]): List of feature maps from the backbone.
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]: (fused_feat, local_feat)
-                fused_feat: Feature map fused from all input levels.
-                local_feat: Feature map fused from lower input levels.
-        """
-        # Local Feature
-
-        local_reduced = []
-
-        for i in range(self.local_feat_layers):
-            local_reduced.append(self.local_conv1x1[i](fpn_input[i]))
-        
-        local_feat = local_reduced.pop()
-
-        for i in range(self.local_feat_layers - 1):
-            h = local_feat
-            l = local_reduced.pop()
-
-            upsample = self.local_upsamples[i]
-            conv3x3 = self.local_conv3x3[i]
-
-            local_feat = conv3x3(torch.add(upsample(h), l))
-
-        # Fused Feature
-
-        fused_reduced = []
-
-        for i in range(len(fpn_input)):
-            fused_reduced.append(self.fused_conv1x1[i](fpn_input[i]))
-
-        fused_feat = fused_reduced.pop()
-
-        for i in range(len(self.fused_upsamples)):
-            h = fused_feat
-            l = fused_reduced.pop()
-
-            upsample = self.fused_upsamples[i]
-            conv3x3 = self.fused_conv3x3[i]
-
-            fused_feat = conv3x3(torch.add(upsample(h), l))
-
-        return fused_feat, local_feat
-
 class MobilenetV3(nn.Module):
     """MobileNetV3 model with optional FPN.
 
@@ -419,24 +298,25 @@ class MobilenetV3(nn.Module):
         fpn (FPN, optional): Feature Pyramid Network module.
         out_ch (int): Number of channels in the final output feature map.
     """
-    def __init__(self, variant, pretrained=False, use_fpn=False, fpn_out_ch=None):
+    def __init__(self, variant, pretrained=False, use_fpn=False, out_ch=None):
         """Initializes the MobilenetV3 model.
 
         Args:
             variant (str): Model variant ('small' or 'large').
             pretrained (bool, optional): Whether to load pretrained weights. Defaults to False.
             use_fpn (bool, optional): Whether to use FPN. Defaults to False.
-            fpn_out_ch (int, optional): Number of FPN output channels. Defaults to None.
+            out_ch (int, optional): Number of output channels. Defaults to None.
         """
         super().__init__()
-        self.features = Features(variant=variant, pretrained=pretrained, use_fpn=use_fpn)
+        self.features = Features(variant=variant, pretrained=pretrained, use_fpn=use_fpn,
+                                 ch_out=None if use_fpn else out_ch)
         self.use_fpn = use_fpn
+        self.out_ch = out_ch if out_ch is not None else self.features.last_ch_out
         self.downsample_ratio = self.features.downsample_ratio
+
         if use_fpn:
-            self.fpn = FPN(self.features.fpn_factors, out_ch=fpn_out_ch)
-            self.out_ch = self.fpn.out_ch
-        else:
-            self.out_ch = self.features.last_ch_out
+            self.fpn = FeaturePyramidNetwork([f[0] for f in self.features.fpn_factors],
+                                             out_channels=out_ch if out_ch is not None else self.features.last_ch_out)
 
     def forward(self, x):
         """Forward pass of the MobilenetV3 model.
@@ -449,5 +329,7 @@ class MobilenetV3(nn.Module):
         """
         x = self.features(x)
         if self.use_fpn:
-            x = self.fpn(x)
+            fpn_inputs = OrderedDict([(f"feat{i}", f) for i, f in enumerate(x)])
+            x = self.fpn(fpn_inputs)
+            return x["feat0"]
         return x

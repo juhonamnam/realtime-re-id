@@ -29,24 +29,25 @@ def get_comparability(query: Person, cluster: Cluster) -> float:
         comparability += min(query.v_scores[i], cluster.v_scores[i]).item()
     return comparability
 
-def cluster_people(people: list[Person], threshold: float, similarity_func: callable):
+def cluster_people(people: list[Person], threshold: float, distance_func: callable):
     labels = [0] * len(people)
     clusters = []
     sorted_people = sorted(map(lambda idx, person: (idx, person), range(len(people)), people),
                            key=lambda x: x[1].v_scores_sum, reverse=True)
     for person_idx, person in sorted_people:
         best_cluster = None
-        best_sim_x_comp = -1
+        best_distance = float('inf')
         best_cluster_index = -1
 
         for cluster_idx, cluster in enumerate(clusters):
-            similarity = similarity_func(person, cluster)
-            if similarity < threshold:
+            distance = distance_func(person, cluster)
+            if distance > threshold:
                 continue
             comparability = get_comparability(person, cluster)
-            sim_x_comp = similarity * comparability
-            if sim_x_comp > best_sim_x_comp:
-                best_sim_x_comp = sim_x_comp
+            if comparability < 1:
+                continue
+            if distance < best_distance:
+                best_distance = distance
                 best_cluster = cluster
                 best_cluster_index = cluster_idx
 

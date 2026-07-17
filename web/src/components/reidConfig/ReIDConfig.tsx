@@ -1,18 +1,19 @@
 import { useContext } from "react"
 import { ReIDConfigContext } from "./context"
-import { FE_MODELS, PD_MODELS, METRIC_TYPES } from "./modelInfo"
+import { FE_MODELS, PD_MODELS } from "./modelInfo"
+import { METRIC_OPTIONS } from "../metrics"
 
 export const ReIDConfig = () => {
   const {
     setPdModel,
     setFeModel,
-    setMetricType,
-    setSimilarityThreshold,
+    setMetric,
+    setThreshold,
     setShowComparsionDetail,
     pdModel,
     feModel,
-    metricType,
-    similarityThreshold,
+    metric,
+    threshold,
     showComparsionDetail,
   } = useContext(ReIDConfigContext)
 
@@ -46,32 +47,28 @@ export const ReIDConfig = () => {
           </option>
         ))}
       </select>
-      <div className="pt-1 pb-1">Similarity Metric</div>
+      <div className="pt-1 pb-1">Distance Metric</div>
       <select
         className="form-select"
         onChange={(e) => {
-          setMetricType(METRIC_TYPES[parseInt(e.currentTarget.value)])
+          setMetric(METRIC_OPTIONS[parseInt(e.currentTarget.value)])
         }}
-        value={metricType.idx}
+        value={metric.idx}
       >
-        {METRIC_TYPES.map((type) => (
-          <option key={type.name} value={type.idx}>
-            {type.name}
+        {METRIC_OPTIONS.map((metricOption) => (
+          <option key={metricOption.type} value={metricOption.idx}>
+            {metricOption.type}
           </option>
         ))}
       </select>
       <div className="pt-1 pb-1">
         <span>
-          Similarity Threshold: {similarityThreshold.toFixed(2)} (Default:{" "}
-          {feModel.defaultSimilarityThresholds[metricType.name].toFixed(2)})
+          Threshold: {threshold.toFixed(2)} (Optimal:{" "}
+          {feModel.optimalThresholds[metric.type].toFixed(2)})
         </span>
         <button
           className="btn btn-sm bi bi-arrow-clockwise"
-          onClick={() =>
-            setSimilarityThreshold(
-              feModel.defaultSimilarityThresholds[metricType.name],
-            )
-          }
+          onClick={() => setThreshold(feModel.optimalThresholds[metric.type])}
           title="Reset to Default"
         ></button>
       </div>
@@ -79,10 +76,10 @@ export const ReIDConfig = () => {
         type="range"
         className="form-range"
         min="0"
-        max="1"
+        max={feModel.optimalThresholds[metric.type] * 2}
         step="0.01"
-        value={similarityThreshold}
-        onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
+        value={threshold}
+        onChange={(e) => setThreshold(parseFloat(e.target.value))}
       />
       <div className="form-check form-switch pt-2">
         <label className="form-check-label">

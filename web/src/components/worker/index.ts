@@ -1,3 +1,4 @@
+import type { ExternalDataFileDescription } from "onnxruntime-web"
 import type { Feature } from "../type"
 
 export type PredictResult = {
@@ -44,11 +45,20 @@ class ReidWorker {
    *
    * @param pdModelPath - The path to the person detection ONNX model.
    * @param feModelPath - The path to the feature extraction ONNX model.
+   * @param feModelExternalData - The external data description for the feature extraction model.
    * @returns A promise that resolves when both models are loaded.
    * @throws Error if model loading fails.
    */
-  async loadModels(pdModelPath: string, feModelPath: string) {
-    const result = await this.call("load", { pdModelPath, feModelPath })
+  async loadModels(
+    pdModelPath: string,
+    feModelPath: string,
+    feModelExternalData: ExternalDataFileDescription[] = [],
+  ) {
+    const result = await this.call("load", {
+      pdModelPath,
+      feModelPath,
+      feModelExternalData,
+    })
     if (!result.success) throw new Error(result.error)
   }
 

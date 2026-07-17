@@ -5,6 +5,7 @@ import torch.nn as nn
 
 __all__ = ['SegLoss']
 
+
 class FocalLoss(nn.Module):
     """Implementation of Focal Loss for binary classification.
 
@@ -16,6 +17,7 @@ class FocalLoss(nn.Module):
         gamma (float): Focusing parameter for hard examples.
         epsilon (float): Small value for numerical stability.
     """
+
     def __init__(self, alpha=1, gamma=2, epsilon=1e-8):
         """Initializes FocalLoss.
 
@@ -50,6 +52,7 @@ class SegLoss(nn.Module):
 
     This loss compares predicted segmentation masks with ground truth masks.
     """
+
     def __init__(self):
         """Initializes SegLoss."""
         super().__init__()
@@ -64,7 +67,6 @@ class SegLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss value.
         """
-        batch = out_seg.size(0)
         height = out_seg.size(2)
         width = out_seg.size(3)
 
@@ -75,6 +77,6 @@ class SegLoss(nn.Module):
 
         f_loss = fl(out_seg, seg_mask)
         f_loss = torch.where(seg_mask, f_loss, 0)
-        f_loss = torch.sum(f_loss) / batch
+        f_loss = torch.sum(f_loss) / out_seg.numel()
 
         return f_loss

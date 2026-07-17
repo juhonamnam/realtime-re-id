@@ -1,11 +1,4 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { useCamData, Cam, CamWrapper } from "./cam"
 import { logger } from "./logger"
 import { useLoading } from "./loading"
@@ -13,55 +6,18 @@ import { cropCanvasToBuffer, captureVideo } from "./convert"
 import { Button, Modal } from "react-bootstrap"
 import { Carousel } from "./carousel"
 import type { Feature, Snap, Status } from "./type"
-import { LINE_WIDTH, FONT_SIZE } from "./const"
 import {
+  LINE_WIDTH,
+  LINE_WIDTH_OF_INVALID,
+  FONT_SIZE,
   COLOR_OF_MATCH,
   COLOR_OF_UNMATCH,
-  getSimilarityColor,
-  getVisibilityColor,
-  mergeColors,
-} from "./color"
+  COLOR_OF_INVALID,
+} from "./const"
 
 import { useReIDConfig, type PDModelInfo, type FEModelInfo } from "./reidConfig"
 
 import { reidWorker } from "./worker"
-
-/**
- * Calculates the average visibility score across all body parts.
- *
- * @param feature - The person feature object containing visibility scores for each part.
- * @returns The average visibility score as a number.
- */
-const getTotalVisibilityScore = (feature: Feature) => {
-  return (
-    feature.vScores.reduce((acc, score) => acc + score, 0) /
-    feature.vScores.length
-  )
-}
-
-/**
- * Calculates the comparability between two features based on their visibility scores.
- * This determines if two features are similar enough in terms of what body parts are visible
- * to be reliably compared.
- *
- * @param featureToCompare - The reference feature to compare against.
- * @param feature - The current feature being evaluated.
- * @returns A comparability score between 0 and 1.
- */
-const getComparability = (featureToCompare: Feature, feature: Feature) => {
-  let sumOfVisibility = 0
-  let sumOfMinVisibility = 0
-
-  for (let i = 0; i < feature.vScores.length; i++) {
-    const compareScore = featureToCompare.vScores[i]
-    const score = feature.vScores[i]
-
-    sumOfVisibility += compareScore
-    sumOfMinVisibility += Math.min(compareScore, score)
-  }
-
-  return sumOfVisibility === 0 ? 0 : sumOfMinVisibility / sumOfVisibility
-}
 
 /**
  * The main component for person re-identification.
@@ -73,17 +29,12 @@ const getComparability = (featureToCompare: Feature, feature: Feature) => {
 export const ReIdentification = () => {
   const { setLoading } = useLoading()
   const { setCamDataHandler, flip, camRef } = useCamData()
-  const {
-    pdModel,
-    feModel,
-    metricType,
-    similarityThreshold,
-    showComparsionDetail,
-  } = useReIDConfig()
+  const { pdModel, feModel, metric, threshold, showComparsionDetail } =
+    useReIDConfig()
 
   const flipRef = useRef(flip)
-  const metricTypeRef = useRef(metricType)
-  const similarityThresholdRef = useRef(similarityThreshold)
+  const metricRef = useRef(metric)
+  const thresholdRef = useRef(threshold)
   const comparisonDetailRef = useRef(showComparsionDetail)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -103,12 +54,12 @@ export const ReIdentification = () => {
   }, [flip])
 
   useEffect(() => {
-    metricTypeRef.current = metricType
-  }, [metricType])
+    metricRef.current = metric
+  }, [metric])
 
   useEffect(() => {
-    similarityThresholdRef.current = similarityThreshold
-  }, [similarityThreshold])
+    thresholdRef.current = threshold
+  }, [threshold])
 
   useEffect(() => {
     comparisonDetailRef.current = showComparsionDetail
@@ -181,8 +132,28 @@ export const ReIdentification = () => {
         input: { data: feData, dims: feDims },
       })
 
-      setSnap({ canvas, bboxes, features })
+      const filteredBboxes = []
+      const filteredFeatures = []
+
+      for (let i = 0; i < bboxes.length; i++) {
+        const feature = features[i]
+        const { finalDist } = metricRef.current.function(feature, feature)
+
+        if (finalDist >= 0) {
+          filteredBboxes.push(bboxes[i])
+          filteredFeatures.push(feature)
+        }
+      }
+
+      if (filteredBboxes.length === 0) {
+        alert("No valid person detected. Please try again.")
+        return
+      }
+
+      setSnap({ canvas, bboxes: filteredBboxes, features: filteredFeatures })
       setStatus("select")
+    } else {
+      alert("No valid person detected. Please try again.")
     }
   }
 
@@ -231,24 +202,24 @@ export const ReIdentification = () => {
         const [x1_, y1_, x2_, y2_] = bboxes[i]
         const feature = features[i]
 
-        const [totalSScore, partSScores] = metricTypeRef.current.function(
+        const { finalDist, partDists } = metricRef.current.function(
           feature,
           featureToCompareRef.current,
-          feModel.partSimilarityThresholds,
-        )
-        const totalVScore = getTotalVisibilityScore(feature)
-
-        const isMatch = totalSScore >= similarityThresholdRef.current
-
-        const comparability = getComparability(
-          featureToCompareRef.current,
-          feature,
         )
 
-        const comparable = comparability >= feModel.visibilityThreshold
+        const compResult =
+          finalDist < 0
+            ? "invalid"
+            : finalDist < thresholdRef.current
+              ? "match"
+              : "unmatch"
 
-        const matchColor =
-          isMatch && comparable ? COLOR_OF_MATCH : COLOR_OF_UNMATCH
+        const bbColor =
+          compResult === "invalid"
+            ? COLOR_OF_INVALID
+            : compResult === "match"
+              ? COLOR_OF_MATCH
+              : COLOR_OF_UNMATCH
 
         const x1 = flipRef.current
           ? camData.clientWidth - x2_ * xRatio
@@ -259,65 +230,37 @@ export const ReIdentification = () => {
         const y1 = y1_ * yRatio
         const y2 = y2_ * yRatio
 
-        ctx.strokeStyle = `rgb(${matchColor.join(", ")})`
-        ctx.lineWidth = LINE_WIDTH
+        ctx.strokeStyle = `rgb(${bbColor.join(", ")})`
+        ctx.lineWidth =
+          compResult === "invalid" ? LINE_WIDTH_OF_INVALID : LINE_WIDTH
         ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
 
         if (comparisonDetailRef.current) {
           ctx.font = `${FONT_SIZE}px Arial`
 
-          const totalSimilarityColor = getSimilarityColor(
-            totalSScore,
-            similarityThresholdRef.current,
-          )
-
-          const totalSimilarityText = `Total Similarity: ${totalSScore.toFixed(2)}`
-
-          const totalVisibilityColor = getVisibilityColor(
-            totalVScore,
-            feModel.visibilityThreshold,
-          )
-
-          const totalVisibilityText = `Total Visibility: ${totalVScore.toFixed(2)}`
+          const finalDistanceText =
+            compResult == "invalid"
+              ? null
+              : `Final Distance: ${finalDist.toFixed(2)}`
 
           const segmentNameTexts = feModel.segmentNames.map(
             (name) => name + " ",
           )
 
-          const similarityTexts = ["Similarity "]
+          const partDistancesTexts = []
 
-          const similarityColors = [totalSimilarityColor]
+          if (compResult !== "invalid") {
+            partDistancesTexts.push("Distances ")
 
-          for (let j = 0; j < feature.vScores.length; j++) {
-            similarityColors.push(
-              getSimilarityColor(
-                partSScores[j],
-                feModel.partSimilarityThresholds[j],
-              ),
-            )
-            similarityTexts.push(partSScores[j].toFixed(2) + " ")
+            for (let j = 0; j < feature.vScores.length; j++) {
+              partDistancesTexts.push(partDists[j].toFixed(2) + " ")
+            }
           }
-
-          const visibilityColors = [totalVisibilityColor]
 
           const visibilityTexts = ["Visibility "]
 
           for (let j = 0; j < feature.vScores.length; j++) {
-            visibilityColors.push(
-              getVisibilityColor(
-                feature.vScores[j],
-                feModel.visibilityThreshold,
-              ),
-            )
             visibilityTexts.push(feature.vScores[j].toFixed(2) + " ")
-          }
-
-          const segmentNameColors = []
-
-          for (let j = 0; j < feature.vScores.length; j++) {
-            segmentNameColors.push(
-              mergeColors(similarityColors[j + 1], visibilityColors[j + 1]),
-            )
           }
 
           const tableWidths = [
@@ -325,70 +268,83 @@ export const ReIdentification = () => {
               ...segmentNameTexts.map((text) => ctx.measureText(text).width),
             ),
             Math.max(
-              ...similarityTexts.map((text) => ctx.measureText(text).width),
-            ),
-            Math.max(
               ...visibilityTexts.map((text) => ctx.measureText(text).width),
             ),
           ]
 
+          if (partDistancesTexts.length > 0) {
+            tableWidths.push(
+              Math.max(
+                ...partDistancesTexts.map(
+                  (text) => ctx.measureText(text).width,
+                ),
+              ),
+            )
+          }
+
           const textWidth = Math.max(
-            ctx.measureText(totalSimilarityText).width,
-            ctx.measureText(totalVisibilityText).width,
+            finalDistanceText ? ctx.measureText(finalDistanceText).width : 0,
             tableWidths.reduce((acc, cur) => acc + cur, 0),
           )
+
+          let additionalLines = 1
+          if (finalDistanceText) additionalLines += 1
 
           ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
           ctx.fillRect(
             x1,
-            Math.max(y1 - 5 - FONT_SIZE * (3 + feModel.segmentNames.length), 0),
+            Math.max(
+              y1 -
+                5 -
+                FONT_SIZE * (additionalLines + feModel.segmentNames.length),
+              0,
+            ),
             textWidth + LINE_WIDTH * 2,
-            FONT_SIZE * (3 + feModel.segmentNames.length) + 5,
+            FONT_SIZE * (additionalLines + feModel.segmentNames.length) + 5,
           )
 
           const topY = Math.max(
-            y1 - 5 - FONT_SIZE * (2 + feModel.segmentNames.length),
+            y1 -
+              5 -
+              FONT_SIZE * (additionalLines - 1 + feModel.segmentNames.length),
             FONT_SIZE,
           )
 
-          ctx.fillStyle = `rgb(${totalSimilarityColor.join(", ")})`
-          ctx.fillText(totalSimilarityText, x1 + LINE_WIDTH, topY)
+          if (finalDistanceText) {
+            ctx.fillStyle = `rgb(${bbColor.join(", ")})`
+            ctx.fillText(finalDistanceText, x1 + LINE_WIDTH, topY)
+          }
 
-          ctx.fillStyle = `rgb(${totalVisibilityColor.join(", ")})`
-          ctx.fillText(totalVisibilityText, x1 + LINE_WIDTH, topY + FONT_SIZE)
-
-          for (let j = 0; j < similarityTexts.length; j++) {
+          for (let j = 0; j < visibilityTexts.length; j++) {
             if (j !== 0) {
-              ctx.fillStyle = `rgb(${segmentNameColors[j - 1].join(", ")})`
+              ctx.fillStyle = `rgb(${bbColor.join(", ")})`
               ctx.fillText(
                 segmentNameTexts[j - 1],
                 x1 + LINE_WIDTH,
-                topY + FONT_SIZE * 2 + j * FONT_SIZE,
+                topY + FONT_SIZE * (additionalLines - 1) + j * FONT_SIZE,
               )
             }
 
-            const similarityColor = similarityColors[j]
-            const similarityText = similarityTexts[j]
-            ctx.fillStyle = `rgb(${similarityColor.join(", ")})`
+            ctx.fillStyle = `rgb(${bbColor.join(", ")})`
             ctx.fillText(
-              similarityText,
+              visibilityTexts[j],
               x1 + LINE_WIDTH + tableWidths[0],
-              topY + FONT_SIZE * 2 + j * FONT_SIZE,
+              topY + FONT_SIZE * (additionalLines - 1) + j * FONT_SIZE,
             )
 
-            const visibilityColor = visibilityColors[j]
-            const visibilityText = visibilityTexts[j]
-            ctx.fillStyle = `rgb(${visibilityColor.join(", ")})`
-            ctx.fillText(
-              visibilityText,
-              x1 + LINE_WIDTH + tableWidths[0] + tableWidths[1],
-              topY + FONT_SIZE * 2 + j * FONT_SIZE,
-            )
+            if (compResult !== "invalid") {
+              ctx.fillStyle = `rgb(${bbColor.join(", ")})`
+              ctx.fillText(
+                partDistancesTexts[j],
+                x1 + LINE_WIDTH + tableWidths[0] + tableWidths[1],
+                topY + FONT_SIZE * (additionalLines - 1) + j * FONT_SIZE,
+              )
+            }
           }
-        } else {
+        } else if (compResult !== "invalid") {
           ctx.font = `${FONT_SIZE}px Arial`
-          ctx.fillStyle = `rgb(${matchColor.join(", ")})`
-          ctx.fillText(totalSScore.toFixed(2), x1 + LINE_WIDTH, y1 - 5)
+          ctx.fillStyle = `rgb(${bbColor.join(", ")})`
+          ctx.fillText(finalDist.toFixed(2), x1 + LINE_WIDTH, y1 - 5)
         }
       }
     },
@@ -419,7 +375,7 @@ export const ReIdentification = () => {
     setLoading(true)
 
     reidWorker
-      .loadModels(pdModel.path, feModel.path)
+      .loadModels(pdModel.path, feModel.path, feModel.externalData)
       .then(() => {
         logger("Loading Finished")
         setLoading(false)
@@ -516,26 +472,6 @@ const PersonSelectModal = ({
 
   const resizeThrottleOccupied = useRef(false)
 
-  const partVisibilityColors = useMemo(() => {
-    if (!snap) return []
-    return snap.features.map((feature) =>
-      Array.from(feature.vScores).map((score) =>
-        getVisibilityColor(score, feModel.visibilityThreshold),
-      ),
-    )
-  }, [snap, feModel])
-
-  const totalVisibilities = useMemo(() => {
-    if (!snap) return []
-    return snap.features.map((feature) => {
-      const visibilityScore = getTotalVisibilityScore(feature)
-      return [
-        visibilityScore,
-        getVisibilityColor(visibilityScore, feModel.visibilityThreshold),
-      ] as const
-    })
-  }, [snap, feModel])
-
   useEffect(() => {
     if (!snap || !canvasRef.current || !canvasWrapperRef.current) return
     const ctx = canvasRef.current.getContext("2d")
@@ -597,15 +533,9 @@ const PersonSelectModal = ({
     )
 
     for (let i = 0; i < snap.bboxes.length; i++) {
-      const feature = snap.features[i]
       const [x1, y1, x2, y2] = snap.bboxes[i]
 
-      const visibleColor =
-        getTotalVisibilityScore(feature) >= feModel.visibilityThreshold
-          ? COLOR_OF_MATCH
-          : COLOR_OF_UNMATCH
-
-      ctxForScene.strokeStyle = `rgb(${visibleColor.join(", ")}`
+      ctxForScene.strokeStyle = `rgb(${COLOR_OF_MATCH.join(", ")}`
       ctxForScene.lineWidth = LINE_WIDTH
       ctxForScene.strokeRect(x1, y1, x2 - x1, y2 - y1)
     }
@@ -648,26 +578,10 @@ const PersonSelectModal = ({
               <Fragment key={i}>
                 <table>
                   <tbody>
-                    <tr>
-                      <td>Total Visibility:</td>
-                      <td
-                        style={{
-                          color: `rgb(${totalVisibilities[i][1].join(", ")})`,
-                        }}
-                      >
-                        {totalVisibilities[i][0].toFixed(2)}
-                      </td>
-                    </tr>
                     {Array.from(vScores).map((score, j) => (
                       <tr key={j}>
                         <td>{feModel.segmentNames[j]}:</td>
-                        <td
-                          style={{
-                            color: `rgb(${partVisibilityColors[i][j].join(", ")})`,
-                          }}
-                        >
-                          {score.toFixed(2)}
-                        </td>
+                        <td>{score.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
