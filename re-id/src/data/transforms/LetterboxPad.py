@@ -5,10 +5,10 @@ import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 
 
-def get_letterbox_pad_params(image, target_size, random_fill=True, p=(0.3, 0.3), generator=None):
+def get_letterbox_pad_params(image, target_size, random_padding=True, p=(0.3, 0.3), generator=None):
     target_height, target_width = target_size
 
-    if random_fill:
+    if random_padding:
         full_padding_prob, no_padding_prob = p
         if generator:
             chance = torch.rand(1, generator=generator,
@@ -17,7 +17,7 @@ def get_letterbox_pad_params(image, target_size, random_fill=True, p=(0.3, 0.3),
             chance = torch.rand(1)
 
         if chance < full_padding_prob:
-            random_fill = False
+            random_padding = False
         elif chance < full_padding_prob + no_padding_prob:
             # No padding, fill entire target size
             return target_height, target_width, 0, 0, 0, 0
@@ -37,7 +37,7 @@ def get_letterbox_pad_params(image, target_size, random_fill=True, p=(0.3, 0.3),
     new_h = int(H * scale)
     new_w = int(W * scale)
 
-    if random_fill:
+    if random_padding:
         # Randomly choose new dimensions within the target size
         if generator:
             new_h = torch.randint(new_h, target_height + 1, (1,),
@@ -87,18 +87,18 @@ def apply_letterbox_pad(image, new_h, new_w, pad_left, pad_right,
 
 class LetterboxPad(nn.Module):
 
-    def __init__(self, size, pad_value=0, random_fill=True, p=(0.3, 0.3),
+    def __init__(self, size, pad_value=0, random_padding=True, p=(0.3, 0.3),
                  interpolation=transforms.InterpolationMode.NEAREST, generator=None):
         super(LetterboxPad, self).__init__()
         self.size = size
         self.pad_value = pad_value
-        self.random_fill = random_fill
+        self.random_padding = random_padding
         self.p = p
         self.interpolation = interpolation
         self.generator = generator
 
     def forward(self, image):
         letterbox_params = get_letterbox_pad_params(
-            image, self.size, random_fill=self.random_fill, generator=self.generator)
+            image, self.size, random_padding=self.random_padding, generator=self.generator)
         return apply_letterbox_pad(image, *letterbox_params,
                                    pad_value=self.pad_value, interpolation=self.interpolation)

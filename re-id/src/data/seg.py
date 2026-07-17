@@ -50,14 +50,14 @@ def get_data_path():
 class SegTransform(nn.Module):
     def __init__(self, image_resolution, generator=None,
                  random_crop=True, random_shift=False,
-                 random_fill=True, random_erasing=False,
+                 random_padding=True, random_erasing=False,
                  random_horizontal_flip=False, random_resolution_reduce=False):
         super().__init__()
         self.image_resolution = image_resolution
         self.generator = generator
         self.random_crop = random_crop
         self.random_shift = random_shift
-        self.random_fill = random_fill
+        self.random_padding = random_padding
         self.random_erasing = random_erasing
         self.random_horizontal_flip = random_horizontal_flip
         self.random_resolution_reduce = random_resolution_reduce
@@ -78,7 +78,7 @@ class SegTransform(nn.Module):
         # masks = list(map(lambda m: self.mask_transform(m), masks))
 
         letterbox_params = get_letterbox_pad_params(
-            image, self.image_resolution, random_fill=self.random_fill, generator=self.generator)
+            image, self.image_resolution, random_padding=self.random_padding, generator=self.generator)
 
         image = apply_letterbox_pad(image, *letterbox_params)
         masks = list(map(lambda m: apply_letterbox_pad(
@@ -119,7 +119,7 @@ def get_train_dataset(image_resolution,
                       generator=None,
                       random_crop=True,
                       random_shift=True,
-                      random_fill=True,
+                      random_padding=True,
                       random_erasing=True,
                       random_horizontal_flip=False,
                       random_resolution_reduce=False):
@@ -132,7 +132,7 @@ def get_train_dataset(image_resolution,
                              generator=generator,
                              random_crop=random_crop,
                              random_shift=random_shift,
-                             random_fill=random_fill,
+                             random_padding=random_padding,
                              random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)
@@ -145,7 +145,7 @@ def get_val_dataset(image_resolution,
                     generator=None,
                     random_crop=True,
                     random_shift=False,
-                    random_fill=True,
+                    random_padding=True,
                     random_erasing=False,
                     random_horizontal_flip=False,
                     random_resolution_reduce=False):
@@ -158,7 +158,7 @@ def get_val_dataset(image_resolution,
                              generator=generator,
                              random_crop=random_crop,
                              random_shift=random_shift,
-                             random_fill=random_fill,
+                             random_padding=random_padding,
                              random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)
@@ -171,7 +171,7 @@ def get_test_dataset(image_resolution,
                      generator=None,
                      random_crop=True,
                      random_shift=False,
-                     random_fill=True,
+                     random_padding=True,
                      random_horizontal_flip=False,
                      random_erasing=False,
                      random_resolution_reduce=False):
@@ -184,7 +184,7 @@ def get_test_dataset(image_resolution,
                              generator=generator,
                              random_crop=random_crop,
                              random_shift=random_shift,
-                             random_fill=random_fill,
+                             random_padding=random_padding,
                              random_erasing=random_erasing,
                              random_horizontal_flip=random_horizontal_flip,
                              random_resolution_reduce=random_resolution_reduce)

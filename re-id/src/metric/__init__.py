@@ -1,7 +1,5 @@
 from .common import *
-from .dist_func.dist_sum import DistSum
 from .dist_func.dist_mean import DistMean
-from .dist_func.dist_max import DistMax
 from .dist_func.concat_dist import ConcatDist
 
 __all__ = ['DistanceMetric']
@@ -9,8 +7,6 @@ __all__ = ['DistanceMetric']
 DISTANCE_METRIC_REGISTRY = {
     'concat_dist': ConcatDist(),
     'dist_mean': DistMean(),
-    'dist_sum': DistSum(),
-    'dist_max': DistMax(),
 }
 
 DISTANCE_METRICS = list(DISTANCE_METRIC_REGISTRY.keys())

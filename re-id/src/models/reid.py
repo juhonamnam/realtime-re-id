@@ -44,22 +44,19 @@ class ReIDModel(nn.Module):
         self.model_name = self.get_model_name(
             model_variant, seg_variant, emb_len, input_resolution)
 
-        self.export_file_path = get_export_file_path(f"{self.model_name}.pt")
         self.onnx_export_file_path = get_export_file_path(
-            f"{self.model_name}.onnx")
+            self.model_name, "model.onnx")
 
         if model_variant == "m3small":
             self.backbone = MobilenetV3(variant="small", pretrained=backbone_pretrained,
-                                        use_fpn=True)
+                                        use_fpn=True, out_ch=256)
         elif model_variant == "m3large":
             self.backbone = MobilenetV3(variant="large", pretrained=backbone_pretrained,
-                                        use_fpn=True)
+                                        use_fpn=True, out_ch=256)
         elif model_variant == "hrnet32":
             self.backbone = hrnet32(pretrained=backbone_pretrained)
         else:
             raise Exception(f"\"{model_variant}\" Not Supported")
-
-        self.gradcam_layer = "backbone"
 
         self.segmentation = nn.Sequential(
             Segmentation(ch_out=self.backbone.out_ch,
@@ -69,6 +66,8 @@ class ReIDModel(nn.Module):
 
         self.embeddings = Embedding(
             input_dim=self.backbone.out_ch, output_dim=emb_len)
+
+        self.gradcam_layer = "embeddings"
 
         if pretrained:
             try:
@@ -110,7 +109,7 @@ class ReIDModel(nn.Module):
         emb_vecs = att.unsqueeze(2) * embedding_feat
         # batch, part_num, emb_len
         emb_vecs = emb_vecs.sum(dim=(3, 4)) / \
-            att.sum(dim=(2, 3)).unsqueeze(2).clamp(min=1)
+            att.sum(dim=(2, 3)).unsqueeze(2).clamp(min=0.1)
 
         if self.use_foreground:
             # batch, 1, height, width
@@ -124,7 +123,7 @@ class ReIDModel(nn.Module):
             f_emb_vecs = f_att.unsqueeze(2) * embedding_feat
             # batch, 1, emb_len
             f_emb_vecs = f_emb_vecs.sum(
-                dim=(3, 4)) / f_att.sum(dim=(2, 3)).unsqueeze(2).clamp(min=1)
+                dim=(3, 4)) / f_att.sum(dim=(2, 3)).unsqueeze(2).clamp(min=0.1)
 
             # batch, part_num + 1, height, width
             att = torch.cat((att, f_att), dim=1)
@@ -200,7 +199,7 @@ class ReIDTrainModel(nn.Module):
             f_att = att.sum(dim=1, keepdim=True)
             f_feat = embedding_feat * f_att
             f_feat = f_feat.sum(dim=(2, 3)) / \
-                f_att.sum(dim=(2, 3)).clamp(min=1)
+                f_att.sum(dim=(2, 3)).clamp(min=0.1)
 
         foreground_logits = [classifier(f_feat)
                              for classifier in self.foreground_logits]

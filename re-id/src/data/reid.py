@@ -25,7 +25,7 @@ REID_DATASETS = {
 class ReIDTransform(nn.Module):
 
     def __init__(self, image_resolution, generator, random_crop,
-                 random_shift, random_fill, random_horizontal_flip,
+                 random_shift, random_padding, random_horizontal_flip,
                  random_erasing, random_resolution_reduce):
         super().__init__()
 
@@ -43,7 +43,7 @@ class ReIDTransform(nn.Module):
             t.append(RandomErasing(generator=generator))
 
         t.append(LetterboxPad(size=image_resolution,
-                 random_fill=random_fill, generator=generator))
+                 random_padding=random_padding, generator=generator))
 
         if random_resolution_reduce:
             t.append(RandomResolutionReduce(
@@ -73,7 +73,7 @@ def get_dataset(dataset_name,
                 no_augment=False,
                 random_crop=False,
                 random_shift=False,
-                random_fill=True,
+                random_padding=True,
                 random_horizontal_flip=False,
                 random_erasing=False,
                 random_resolution_reduce=True,
@@ -82,7 +82,7 @@ def get_dataset(dataset_name,
     if no_augment:
         random_crop = False
         random_shift = False
-        random_fill = False
+        random_padding = False
         random_horizontal_flip = False
         random_erasing = False
         random_resolution_reduce = False
@@ -91,7 +91,7 @@ def get_dataset(dataset_name,
                               generator=generator,
                               random_crop=random_crop,
                               random_shift=random_shift,
-                              random_fill=random_fill,
+                              random_padding=random_padding,
                               random_horizontal_flip=random_horizontal_flip,
                               random_erasing=random_erasing,
                               random_resolution_reduce=random_resolution_reduce)
