@@ -1,11 +1,5 @@
-import {
-  getProductSimilarity,
-  getWeightedMeanSimilarity,
-  getWeightedGeometricMeanSimilarity,
-  getMinimumSimilarity,
-  buildSimilarityFunc,
-} from "../metrics"
-import type { Feature } from "../type"
+import type { ExternalDataFileDescription } from "onnxruntime-web"
+import type { MetricType } from "../metrics"
 
 const baseUrl = import.meta.env.BASE_URL
 
@@ -17,21 +11,14 @@ export type PDModelInfo = {
   threshold: number
 }
 
-type MetricName =
-  | "Product"
-  | "Weighted Mean"
-  | "Weighted Geometric Mean"
-  | "Minimum"
-
 export type FEModelInfo = {
   idx: number
   name: string
   path: string
+  externalData: ExternalDataFileDescription[]
   shape: readonly [number, number]
-  defaultSimilarityThresholds: { [key in MetricName]: number }
-  partSimilarityThresholds: number[]
+  optimalThresholds: { [key in MetricType]: number }
   segmentNames: string[]
-  visibilityThreshold: number
 }
 
 export const PD_MODELS: PDModelInfo[] = [
@@ -54,49 +41,44 @@ export const PD_MODELS: PDModelInfo[] = [
 
 export const FE_MODELS: FEModelInfo[] = [
   {
-    name: "ReID M3Small 5a24e 64x192",
-    path: `${baseUrl}/model/reid_m3small_5a24e_64x192.onnx`,
+    name: "ReID M3Large 5pf256e 64x192",
+    path: `${baseUrl}/model/reid_m3large_5pf256e_64x192/model.onnx`,
+    externalData: [],
     shape: [192, 64] as const,
-    defaultSimilarityThresholds: {
-      ["Product"]: 0.64,
-      ["Weighted Mean"]: 0.66,
-      ["Weighted Geometric Mean"]: 0.64,
-      ["Minimum"]: 0.64,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.3,
+      ["Distance Mean"]: 1.3,
     },
-    partSimilarityThresholds: [0.5, 0.6, 0.5, 0.6, 0.5],
-    visibilityThreshold: 0.7,
-    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg"],
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+  },
+  {
+    name: "ReID M3Small 5pf256e 64x192",
+    path: `${baseUrl}/model/reid_m3small_5pf256e_64x192/model.onnx`,
+    externalData: [],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 2.4,
+      ["Distance Mean"]: 1.0,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+  },
+  {
+    name: "ReID HRNet32 5pf256e 64x192",
+    path: `${baseUrl}/model/reid_hrnet32_5pf256e_64x192/model.onnx`,
+    externalData: [
+      {
+        path: "55c14cd0-81ac-11f1-935e-b52b2e712954.data",
+        data: `${baseUrl}/model/reid_hrnet32_5pf256e_64x192/55c14cd0-81ac-11f1-935e-b52b2e712954.data`,
+      },
+    ],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.7,
+      ["Distance Mean"]: 1.5,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
   },
 ].map((model, idx) => ({
   ...model,
   idx,
 }))
-
-export type MetricType = {
-  idx: number
-  name: MetricName
-  function: (
-    feature1: Feature,
-    feature2: Feature,
-    thresholds: number[],
-  ) => [number, number[]]
-}
-
-export const METRIC_TYPES: MetricType[] = [
-  {
-    name: "Product" as const,
-    function: buildSimilarityFunc(getProductSimilarity),
-  },
-  {
-    name: "Weighted Mean" as const,
-    function: buildSimilarityFunc(getWeightedMeanSimilarity),
-  },
-  {
-    name: "Weighted Geometric Mean" as const,
-    function: buildSimilarityFunc(getWeightedGeometricMeanSimilarity),
-  },
-  {
-    name: "Minimum" as const,
-    function: buildSimilarityFunc(getMinimumSimilarity),
-  },
-].map((metricType, idx) => ({ ...metricType, idx }))

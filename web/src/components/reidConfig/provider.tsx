@@ -3,17 +3,17 @@ import { ReIDConfigContext } from "./context"
 import { reIdConfigLocalStorage } from "./localStorage"
 import {
   FE_MODELS,
-  METRIC_TYPES,
   PD_MODELS,
   type FEModelInfo,
-  type MetricType,
   type PDModelInfo,
 } from "./modelInfo"
+
+import { METRIC_OPTIONS, type MetricOption } from "../metrics"
 
 /**
  * Provider component for the Re-ID configuration context.
  * It manages the state for person detection models, feature extraction models,
- * similarity metrics, and visualization settings.
+ * distance metrics, and visualization settings.
  *
  * @param props - The component props.
  * @param props.children - The child components that will have access to the context.
@@ -38,30 +38,28 @@ export const ReIDConfigProvider = ({ children }: PropsWithChildren) => {
       return FE_MODELS[0]
     }
   }, [])
-  const initialMetricType = useMemo(() => {
-    const metricTypeName = reIdConfigLocalStorage.getMetricType()
+  const initialMetric = useMemo(() => {
+    const metricType = reIdConfigLocalStorage.getMetricType()
 
-    const metricType = METRIC_TYPES.find((type) => type.name === metricTypeName)
+    const metric = METRIC_OPTIONS.find((option) => option.type === metricType)
 
-    if (metricType) {
-      return metricType
+    if (metric) {
+      return metric
     } else {
-      return METRIC_TYPES[0]
+      return METRIC_OPTIONS[0]
     }
   }, [])
-  const initialSimilarityThreshold = useMemo(() => {
-    return initialFeModel.defaultSimilarityThresholds[initialMetricType.name]
-  }, [initialFeModel, initialMetricType])
+  const initialThreshold = useMemo(() => {
+    return initialFeModel.optimalThresholds[initialMetric.type]
+  }, [initialFeModel, initialMetric])
   const initialShowComparsionDetail = useMemo(() => {
     return reIdConfigLocalStorage.getShowComparsionDetail()
   }, [])
 
   const [pdModel, setPdModel_] = useState(initialPdModel)
   const [feModel, setFeModel_] = useState(initialFeModel)
-  const [metricType, setMetricType_] = useState(initialMetricType)
-  const [similarityThreshold, setSimilarityThreshold] = useState(
-    initialSimilarityThreshold,
-  )
+  const [metric, setMetric_] = useState(initialMetric)
+  const [threshold, setThreshold] = useState(initialThreshold)
   const [showComparsionDetail, setShowComparsionDetail_] = useState(
     initialShowComparsionDetail,
   )
@@ -74,13 +72,13 @@ export const ReIDConfigProvider = ({ children }: PropsWithChildren) => {
   const setFeModel = (model: FEModelInfo) => {
     reIdConfigLocalStorage.setFEModel(model.name)
     setFeModel_(model)
-    setSimilarityThreshold(model.defaultSimilarityThresholds[metricType.name])
+    setThreshold(model.optimalThresholds[metric.type])
   }
 
-  const setMetricType = (metricType: MetricType) => {
-    reIdConfigLocalStorage.setMetricType(metricType.name)
-    setMetricType_(metricType)
-    setSimilarityThreshold(feModel.defaultSimilarityThresholds[metricType.name])
+  const setMetric = (metric: MetricOption) => {
+    reIdConfigLocalStorage.setMetricType(metric.type)
+    setMetric_(metric)
+    setThreshold(feModel.optimalThresholds[metric.type])
   }
 
   const setShowComparsionDetail = (show: boolean) => {
@@ -95,10 +93,10 @@ export const ReIDConfigProvider = ({ children }: PropsWithChildren) => {
         setPdModel,
         feModel,
         setFeModel,
-        metricType,
-        setMetricType,
-        similarityThreshold,
-        setSimilarityThreshold,
+        metric,
+        setMetric,
+        threshold,
+        setThreshold,
         showComparsionDetail,
         setShowComparsionDetail,
       }}
