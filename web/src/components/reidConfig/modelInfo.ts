@@ -46,10 +46,10 @@ export const FE_MODELS: FEModelInfo[] = [
     externalData: [],
     shape: [192, 64] as const,
     optimalThresholds: {
-      ["Concat Distance"]: 3.3,
-      ["Distance Mean"]: 1.3,
+      ["Concat Distance"]: 3.6,
+      ["Distance Mean"]: 1.4,
     },
-    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg", "Full Body"],
   },
   {
     name: "ReID M3Small 5pf256e 64x192",
@@ -57,18 +57,56 @@ export const FE_MODELS: FEModelInfo[] = [
     externalData: [],
     shape: [192, 64] as const,
     optimalThresholds: {
-      ["Concat Distance"]: 2.4,
+      ["Concat Distance"]: 2.5,
       ["Distance Mean"]: 1.0,
     },
-    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg", "Full Body"],
   },
   {
     name: "ReID HRNet32 5pf256e 64x192",
     path: `${baseUrl}/model/reid_hrnet32_5pf256e_64x192/model.onnx`,
     externalData: [
       {
+        path: "bc4b2ac2-82d1-11f1-954f-e7326df99ed2.data",
+        data: `${baseUrl}/model/reid_hrnet32_5pf256e_64x192/bc4b2ac2-82d1-11f1-954f-e7326df99ed2.data`,
+      },
+    ],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.6,
+      ["Distance Mean"]: 1.4,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg", "Full Body"],
+  },
+  {
+    name: "ReID M3Large 5paf256e 64x192",
+    path: `${baseUrl}/model/reid_m3large_5paf256e_64x192/model.onnx`,
+    externalData: [],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.5,
+      ["Distance Mean"]: 1.4,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+  },
+  {
+    name: "ReID M3Small 5paf256e 64x192",
+    path: `${baseUrl}/model/reid_m3small_5paf256e_64x192/model.onnx`,
+    externalData: [],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 2.5,
+      ["Distance Mean"]: 1.0,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
+  },
+  {
+    name: "ReID HRNet32 5paf256e 64x192",
+    path: `${baseUrl}/model/reid_hrnet32_5paf256e_64x192/model.onnx`,
+    externalData: [
+      {
         path: "55c14cd0-81ac-11f1-935e-b52b2e712954.data",
-        data: `${baseUrl}/model/reid_hrnet32_5pf256e_64x192/55c14cd0-81ac-11f1-935e-b52b2e712954.data`,
+        data: `${baseUrl}/model/reid_hrnet32_5paf256e_64x192/55c14cd0-81ac-11f1-935e-b52b2e712954.data`,
       },
     ],
     shape: [192, 64] as const,
