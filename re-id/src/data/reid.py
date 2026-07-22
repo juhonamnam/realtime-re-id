@@ -76,8 +76,7 @@ def get_dataset(dataset_name,
                 random_padding=True,
                 random_horizontal_flip=False,
                 random_erasing=False,
-                random_resolution_reduce=True,
-                iterate_camera_id=False):
+                random_resolution_reduce=True):
 
     if no_augment:
         random_crop = False
@@ -102,5 +101,4 @@ def get_dataset(dataset_name,
             f"Unsupported dataset: {dataset_name}. Supported datasets: {list(REID_DATASETS.keys())}")
 
     return dataset(transform=transform,
-                   stage=data_stage,
-                   iterate_camera_id=iterate_camera_id)
+                   stage=data_stage)

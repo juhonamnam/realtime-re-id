@@ -49,7 +49,7 @@ class ReIDRandomSampler(sampler.Sampler):
         imgs = []
         for idx in indices:
             _id = self.unique_ids[idx]
-            imgs.extend(self._sample(self.data_source.get_indexes_by_id(_id), self.batch_image))
+            imgs.extend(self._sample(self.data_source.get_indices_by_id(_id), self.batch_image))
         return iter(imgs)
 
     def __len__(self):

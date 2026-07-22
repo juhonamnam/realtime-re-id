@@ -6,6 +6,7 @@ from src.metric import get_part_distances
 from src.utils.segment_info import get_segment_groups, get_attention_groups
 from .mobilenetv3 import MobilenetV3
 from .hrnet import hrnet32
+from .resnet import ResNet
 from src.utils.file_path import get_weight_file_path, get_export_file_path, PRETRAINED_PATH
 from src.utils.split_state_dict import load_state_dict, save_state_dict
 
@@ -49,12 +50,17 @@ class ReIDModel(nn.Module):
 
         if model_variant == "m3small":
             self.backbone = MobilenetV3(variant="small", pretrained=backbone_pretrained,
-                                        use_fpn=True, out_ch=256)
+                                        use_fpn=True, fpn_out_ch=256)
         elif model_variant == "m3large":
             self.backbone = MobilenetV3(variant="large", pretrained=backbone_pretrained,
-                                        use_fpn=True, out_ch=256)
+                                        use_fpn=True, fpn_out_ch=256)
         elif model_variant == "hrnet32":
             self.backbone = hrnet32(pretrained=backbone_pretrained)
+
+        elif model_variant == "resnet50":
+            self.backbone = ResNet(variant="resnet50", pretrained=backbone_pretrained,
+                                   use_fpn=True, fpn_out_ch=256)
+
         else:
             raise Exception(f"\"{model_variant}\" Not Supported")
 

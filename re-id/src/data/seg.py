@@ -73,10 +73,6 @@ class SegTransform(nn.Module):
                 image = TF.crop(image, *params)
                 masks = map(lambda m: TF.crop(m, *params), masks)
 
-        # image = self.image_transform(image)
-        #
-        # masks = list(map(lambda m: self.mask_transform(m), masks))
-
         letterbox_params = get_letterbox_pad_params(
             image, self.image_resolution, random_padding=self.random_padding, generator=self.generator)
 
