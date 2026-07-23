@@ -16,7 +16,7 @@ The system identifies individuals by segmenting the body into predefined body pa
 
 #### Feature Extraction
 
-In the original BPBReID model, **HRNet** was the most accurate backbone. In this model, we prioritize speed and efficiency, so we also experimented on **MobileNetV3** as the backbone, with a **Feature Pyramid Network (FPN)** structure to maintain high-resolution segmentation.
+In the original BPBReID model, **HRNet** was the most accurate backbone. In this model, we prioritize speed and efficiency, so we also experimented on **ResNet50** and **MobileNetV3** as the backbone, with a **Feature Pyramid Network (FPN)** structure to achieve high-resolution segmentation.
 
 ![Model Architecture](model-architecture.jpg)
 _Visual representation of the feature extraction and segmentation process._
@@ -42,9 +42,11 @@ _Visual representation of the comparison process._
 The model was trained using a multi-task approach:
 
 - **Segmentation**: Trained on the **COCO DensePose** dataset using **Focal Loss**.
-- **Feature Extraction**: Trained on Re-ID datasets from **Market1501**, **DukeMTMC-reID**, and **AI Hub** (a Korean government-funded platform) using a combination of **Classification Loss** and **Triplet Loss**.
+- **Feature Extraction**: Trained on Re-ID datasets from **Market1501**, **DukeMTMC-reID**, and **Korean Re-Identification Image Dataset** using a combination of **Classification Loss** and **Triplet Loss**.
 
 When training feature extraction, all datasets were used simultaneously to improve the model's generalization. When doing so, we made sure that images from one dataset are not compared with images from another dataset. Images from different datasets are not mixed in the same batch, and different classification layers are used for each dataset when training.
+
+Training on all datasets simultaneously may reduce performance on individual benchmarks, but it can improve the model's generalization across different domains.
 
 ---
 
@@ -53,11 +55,13 @@ When training feature extraction, all datasets were used simultaneously to impro
 | Backbone                | Segment Variant | mAP (%) | Rank-1 (%) | Coverage (%) | Speedup (vs HRNet) |
 | ----------------------- | --------------- | ------- | ---------- | ------------ | ------------------ |
 | HRNet                   | 5pf             | 76.7    | 91.0       | 91.4         | 1.0 x              |
-| MobileNetV3 Large + FPN | 5pf             | 63.6    | 82.9       | 91.0         | 4.02 x             |
-| MobileNetV3 Small + FPN | 5pf             | 51.6    | 73.6       | 80.2         | 4.31 x             |
+| ResNet50 + FPN          | 5pf             | 68.9    | 87.0       | 91.4         | 2.34 x             |
+| MobileNetV3 Large + FPN | 5pf             | 63.6    | 82.9       | 91.0         | 3.37 x             |
+| MobileNetV3 Small + FPN | 5pf             | 51.6    | 73.6       | 80.2         | 4.21 x             |
 | HRNet                   | 5paf            | 79.8    | 91.5       | 71.2         | 1.0 x              |
-| MobileNetV3 Large + FPN | 5paf            | 66.7    | 81.7       | 56.7         | 4.02 x             |
-| MobileNetV3 Small + FPN | 5paf            | 61.8    | 73.0       | 25.4         | 4.31 x             |
+| ResNet50 + FPN          | 5paf            | 74.6    | 87.6       | 56.2         | 2.34 x             |
+| MobileNetV3 Large + FPN | 5paf            | 66.7    | 81.7       | 56.7         | 3.37 x             |
+| MobileNetV3 Small + FPN | 5paf            | 61.8    | 73.0       | 25.4         | 4.21 x             |
 
 Coverage is defined as the percentage of valid bounding boxes that are not filtered out by the quality filtering.
 
@@ -65,7 +69,7 @@ Coverage is defined as the percentage of valid bounding boxes that are not filte
 
 ## Live Demo
 
-A live demo of this system is available here:  
+A live demo of this system is available here:
 👉 **[https://juhonamnam.github.io/realtime-re-id/](https://juhonamnam.github.io/realtime-re-id/)**
 
 The demo runs entirely in your browser using `onnxruntime-web` and your webcam.
