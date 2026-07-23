@@ -41,6 +41,17 @@ export const PD_MODELS: PDModelInfo[] = [
 
 export const FE_MODELS: FEModelInfo[] = [
   {
+    name: "ReID ResNet50 5pf256e 64x192",
+    path: `${baseUrl}/model/reid_resnet50_5pf256e_64x192/model.onnx`,
+    externalData: [],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.6,
+      ["Distance Mean"]: 1.4,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg", "Full Body"],
+  },
+  {
     name: "ReID M3Large 5pf256e 64x192",
     path: `${baseUrl}/model/reid_m3large_5pf256e_64x192/model.onnx`,
     externalData: [],
@@ -77,6 +88,17 @@ export const FE_MODELS: FEModelInfo[] = [
       ["Distance Mean"]: 1.4,
     },
     segmentNames: ["Head", "Torso", "Arm", "Upper Leg", "Lower Leg", "Full Body"],
+  },
+  {
+    name: "ReID ResNet50 5paf256e 64x192",
+    path: `${baseUrl}/model/reid_resnet50_5paf256e_64x192/model.onnx`,
+    externalData: [],
+    shape: [192, 64] as const,
+    optimalThresholds: {
+      ["Concat Distance"]: 3.3,
+      ["Distance Mean"]: 1.3,
+    },
+    segmentNames: ["Head", "Torso", "Arm", "Leg", "Foot", "Full Body"],
   },
   {
     name: "ReID M3Large 5paf256e 64x192",
