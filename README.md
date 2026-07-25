@@ -65,6 +65,8 @@ Training on all datasets simultaneously may reduce performance on individual ben
 
 Coverage is defined as the percentage of valid bounding boxes that are not filtered out by the quality filtering.
 
+Performance on a single dataset like Market1501 can be improved if the model is trained only on that dataset. This result however is based on the model trained on multiple datasets simultaneously, which can be more accurate on unseen domains, thus more robust in real-world applications.
+
 ---
 
 ## Live Demo
